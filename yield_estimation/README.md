@@ -67,3 +67,36 @@ measurements to investigate the affected batch.
 | `model_lib/HSCS.py` | High-dimensional sparse compressed sampling |
 
 `tool/Distribution/` contains their distribution helpers. The configured evaluation above runs MC. The other modules are available for porting and comparison. The import-time deletion of a machine-local simulation directory has been removed from `tool/delete.py`; callers still need to supply their own output directories.
+
+## Reassess saved MC samples at another delay limit
+
+For a **completed** configured MC run, the read delays can be compared with a
+new limit without resampling or invoking Xyce:
+
+```bash
+python -m yield_estimation.evaluation.reassess \
+  --source-run outputs/oct01_mc_smoke \
+  --threshold-ns 0.7 \
+  --output-dir outputs/oct01_mc_smoke_limit07
+```
+
+The example 0.7 ns is a workflow-check limit, not a recommended design target.
+The command checks the saved configuration, counts and per-sample labels,
+then writes a separate `samples.csv`, `run_config.json`, `run_summary.json`
+and Chinese `report.md`. It rejects incomplete runs and refuses to overwrite
+an existing output directory. Confirmed functional failures remain failures
+at every delay limit; changing the limit only reclassifies valid read delays.
+The live run and this command share `evaluation/outcomes.py`: a delay equal
+to the limit passes, and only a strictly greater delay is a timing failure.
+
+The new summary retains the original simulation revision and records the
+reassessment revision and SHA-256 fingerprints of the source configuration,
+summary and sample table. Fingerprints identify the files used; they are not
+an authenticity certificate. The command trusts saved electrical classifications
+and does not independently recheck raw voltage measurements.
+
+This is exploratory reuse of the same samples, **not another independent
+MC run**. It adds zero simulated samples and reports no confirmatory confidence
+interval. Set the final comparison limit before collecting independent evaluation
+samples. Changing voltage, temperature, process distribution or circuit structure
+requires a new simulation; this command changes only the delay limit.
