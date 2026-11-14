@@ -597,7 +597,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                               f'FIND {{{restore_error}}} AT={1e-9 + (cycle + 1.1) * period:.12g}')
 
     @staticmethod
-    def access_validity(measurements, operation, vdd, select_every=1, cycles=None):
+    def _access_checks(measurements, operation, vdd, select_every=1, cycles=None):
         entries = access_cycles(operation, select_every, cycles)
         names = [f'V{phase}_ERROR_{cycle}' for cycle, *_ in entries
                  for phase in ('ACCESS', 'HOLD', 'PRE_ACCESS', 'BOUNDARY', 'ROLE', 'ISO')]
@@ -609,7 +609,25 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         names += restore
         limits += [.02 * vdd] * len(restore)
         values = measurements.reindex(columns=names).to_numpy(dtype=float)
-        return np.isfinite(values).all(axis=1) & (np.abs(values) <= limits).all(axis=1)
+        return np.isfinite(values).all(axis=1), (np.abs(values) <= limits).all(axis=1)
+
+    @classmethod
+    def access_validity(cls, measurements, operation, vdd, select_every=1, cycles=None):
+        complete, within_limits = cls._access_checks(
+            measurements, operation, vdd, select_every, cycles,
+        )
+        return complete & within_limits
+
+    @classmethod
+    def _read_delays_for_yield(cls, measurements, vdd, select_every=1):
+        """Mark proven access failures and reject batches with unresolved measurements."""
+        delays = measurements.reindex(columns=['TREAD_TOTAL']).to_numpy(dtype=float).ravel()
+        complete, within_limits = cls._access_checks(measurements, 'read', vdd, select_every)
+        unresolved = ~complete | (within_limits & ~np.isfinite(delays))
+        if unresolved.any():
+            runs = measurements.index[unresolved].tolist()
+            raise RuntimeError(f'Incomplete read measurements for runs {runs}')
+        return np.where(within_limits, delays, np.nan)
 
     def _add_precharge_safety_measures(self, simulator, operation):
         """Physical WL must be off throughout each clock-low precharge.
@@ -996,7 +1014,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
     def gen_process_params(self, circuit: SubCircuitFactory,
                         operation: str, num_mc: int,
-                        vars: np.array = None):
+                        vars: np.array = None, *, process_param_format='.4f'):
         """
         统一生成工艺参数数据表 (支持 6T 和 10T)
 
@@ -1124,7 +1142,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
         # --- 4. 格式化数据表 ---
         table_content += "\n".join([
-            "+ " + " ".join([f"{x:.4f}" for x in row_data])
+            "+ " + " ".join(format(float(value), process_param_format) for value in row_data)
             for row_data in vars
         ])
 
@@ -1220,8 +1238,14 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
 
 
-    def run_mc_simulation(self, operation='read', target_row=0, target_col=0, mc_runs=100, temperature=27,vars=None):
-        """Run Xyce Monte Carlo simulation"""
+    def run_mc_simulation(self, operation='read', target_row=0, target_col=0,
+                          mc_runs=100, temperature=27, vars=None, *,
+                          retain_read_failures=False, process_param_format='.4f'):
+        """Run Xyce Monte Carlo simulation.
+
+        When retain_read_failures is enabled for a read, confirmed access
+        failures return NaN delays. Unresolved measurements still raise.
+        """
         # 定义扫描开关与配置键名的对应关系
         # 元组结构: (Config Key, Boolean Switch)
         # 这里的 Boolean Switch 来自 __init__ 中定义的 self.sweep_xxx
@@ -1262,7 +1286,10 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
         # Add process parameters
         if self.custom_mc:
-            self.gen_process_params(simulator.circuit, operation, vars=vars, num_mc=mc_runs)
+            self.gen_process_params(
+                simulator.circuit, operation, vars=vars, num_mc=mc_runs,
+                process_param_format=process_param_format,
+            )
  
         # 遍历检查并在需要时调用通用方法
         for key, is_enabled in check_list:
@@ -1381,6 +1408,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 selected_columns=selected_columns
             )
 
+            read_delays = None
             if operation == 'read' or operation == 'write' or operation == 'read&write':
                 # Get all `.mtX` or `.msX` files from MC
                 mc_df = parse_mc_measurements(
@@ -1395,13 +1423,18 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 mc_df.to_csv(tb_path + '.raw.data.csv')
                 mc_df.to_csv(tb_path.replace('.sp', '.data.csv'))
                 self._check_distributed_precharge(mc_df, operation)
-                valid = self.access_validity(mc_df, operation, float(self.vdd),
-                                             select_every=self.select_every)
-                # Preserve the raw CSV above. Failed samples remain in the
-                # returned ensemble, as NaN, so optimizers/yield count them.
                 delay_name = {'read': 'TREAD_TOTAL', 'write': 'TWRITE_TOTAL',
                               'read&write': 'TVOUT_PERIOD'}[operation]
-                mc_df.loc[~valid, delay_name] = np.nan
+                if operation == 'read' and retain_read_failures:
+                    read_delays = self._read_delays_for_yield(
+                        mc_df, float(self.vdd), self.select_every,
+                    )
+                    mc_df[delay_name] = read_delays
+                else:
+                    valid = self.access_validity(
+                        mc_df, operation, float(self.vdd), select_every=self.select_every,
+                    )
+                    mc_df.loc[~valid, delay_name] = np.nan
                 # Generate statistics
                 stats = generate_mc_statistics(mc_df)
                 # Save results
@@ -1451,7 +1484,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 delay_name = {'read': 'TREAD_TOTAL',
                               'write': 'TWRITE_TOTAL',
                               'read&write': 'TVOUT_PERIOD'}[operation]
-                delay = _col(delay_name)
+                delay = read_delays if read_delays is not None else _col(delay_name)
                 pavg = _col('PAVG')
                 pstc = _col('PSTC')
                 pdyn = _col('PDYN')
