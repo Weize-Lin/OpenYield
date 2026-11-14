@@ -90,7 +90,12 @@ class MC():
         x[x>high_bound_full] = high_bound_full[x>high_bound_full]
         return x
      # Perform Monte Carlo simulation until convergence conditions are met
-    def start_estimate(self, max_num=100000):
+    def start_estimate(self, max_num=100000, *, fixed_budget=False):
+        """Use the configured distribution for every draw in fixed-budget mode."""
+        if fixed_budget and (
+            max_num < 1 or self.initial_num < 1 or self.sample_num < 1 or self.IS_bound_on
+        ):
+            raise ValueError('Fixed-budget MC needs positive sample counts and no legacy clipping')
         means = self.means
         feature_num = self.feature_num
         initial_num, sample_num, FOM_use_num = self.initial_num, self.sample_num, self.FOM_use_num
@@ -101,15 +106,18 @@ class MC():
         now_time = time.time()
         self.y, P_fail_list, FOM_list, data_num_list = np.empty([0,1]), np.empty([0]), np.empty([0]), np.empty([0])
         
-        if feature_num ==18:
-            variances = np.abs(means) * 0.003
-        elif feature_num ==108:
-            variances = np.abs(means) * 0.01 
-        elif feature_num == 576:
-            variances = np.abs(means) * 0.005
-        cov_matrix = np.diag(variances)
-        x = np.random.multivariate_normal(mean=means, cov=cov_matrix,
-                                          size=initial_num)
+        if fixed_budget:
+            x = self.f_norm.sample(n=min(initial_num, max_num))
+        else:
+            if feature_num ==18:
+                variances = np.abs(means) * 0.003
+            elif feature_num ==108:
+                variances = np.abs(means) * 0.01
+            elif feature_num == 576:
+                variances = np.abs(means) * 0.005
+            cov_matrix = np.diag(variances)
+            x = np.random.multivariate_normal(mean=means, cov=cov_matrix,
+                                              size=initial_num)
         if IS_bound_on:
                 x = self._IS_bound(x, IS_bound_num)
         num_mc = x.shape[0]
@@ -122,9 +130,12 @@ class MC():
         self.save_result(P_fail=P_fail, FOM=FOM, num=self.y.shape[0], used_time=time.time() - now_time)
         print(f" # IS sample: {self.y.shape[0]}, fail_rate: {P_fail}, FOM: {FOM}")
         i=0
-        while ((FOM>0.01) and (self.y.shape[0]<max_num)) or (i<40):
-
-            x = self.f_norm.sample(n=sample_num)
+        while (
+            (self.y.shape[0] < max_num and (fixed_budget or FOM > 0.01))
+            or (not fixed_budget and i < 40)
+        ):
+            count = min(sample_num, max_num - self.y.shape[0]) if fixed_budget else sample_num
+            x = self.f_norm.sample(n=count)
             if IS_bound_on:
                 x = self._IS_bound(x, IS_bound_num)
             num_mc = x.shape[0]

@@ -1,0 +1,12 @@
+{
+  "case": "sram_6t_3x2_read",
+  "corner": "TT",
+  "vdd": 1,
+  "temperature_c": 27,
+  "relative_std": 0.05,
+  "u0_positive": true,
+  "threshold_ns": 1,
+  "seed": 2,
+  "budget": 4,
+  "batch_size": 3
+}
