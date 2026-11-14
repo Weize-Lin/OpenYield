@@ -3,19 +3,18 @@ import time
 import os
 import torch
 import random 
-import sys
-parent_dir_of_code1 = '/home/lixy/OpenYield-main/yield_estimation'
-sys.path.append(parent_dir_of_code1) 
-from tool.util import write_data2csv, seed_set
-from tool.delete import delete_folder_content
-from tool.Distribution.normal_v1 import norm_dist
+from pathlib import Path
+
+from yield_estimation.tool.util import write_data2csv, seed_set
+
+
 class MC():
     threshold = 3.745662e-09
     _BOUND_FILE_MAP = {
-        18: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_18_bound.txt',
-        108: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_108_bound.txt',  
-        576: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_576.txt',
-        2304: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_2304.txt'
+        18: 'model_18_bound.txt',
+        108: 'model_108_bound.txt',
+        576: 'model_bound_576.txt',
+        2304: 'model_bound_2304.txt'
     }
     def __init__(self, f_norm, mc_testbench, means, feature_num, IS_bound_num, initial_num=10000, sample_num=10, FOM_use_num=10, seed=0, IS_bound_on=False):
         self.x = None   
@@ -30,7 +29,7 @@ class MC():
         seed_set(seed)
         if self.feature_num not in self._BOUND_FILE_MAP:
             raise ValueError(f"不支持的特征数量: {self.feature_num}，仅支持 {list(self._BOUND_FILE_MAP.keys())}")
-        bound_file_path = self._BOUND_FILE_MAP[self.feature_num]
+        bound_file_path = Path(__file__).resolve().parents[1] / 'bound_lib' / self._BOUND_FILE_MAP[self.feature_num]
         bounds = np.loadtxt(bound_file_path, dtype=np.float64)
         self.up_bounds = bounds[0, :]  
         self.low_bounds = bounds[1, :] 
@@ -97,6 +96,8 @@ class MC():
         initial_num, sample_num, FOM_use_num = self.initial_num, self.sample_num, self.FOM_use_num
         IS_bound_num, IS_bound_on = self.IS_bound_num, self.IS_bound_on
 
+        delay_output = Path('results/MC/output_read.txt')
+        delay_output.parent.mkdir(parents=True, exist_ok=True)
         now_time = time.time()
         self.y, P_fail_list, FOM_list, data_num_list = np.empty([0,1]), np.empty([0]), np.empty([0]), np.empty([0])
         
@@ -114,13 +115,11 @@ class MC():
         num_mc = x.shape[0]
         y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x)
         new_y = y.reshape(num_mc,1)
-        folder_path = '/home/lixy/OpenYield-main/sim2'
-        delete_folder_content(folder_path)
-        self.save_y_to_txt(new_y,'/home/lixy/yield_models/model/output_read.txt')
+        self.save_y_to_txt(new_y, delay_output)
         self.y = np.vstack([self.y, new_y])
         P_fail, FOM = self._evaluate(self.y, P_fail_list, FOM_use_num)
         P_fail_list = np.hstack([P_fail_list, P_fail])
-        self.save_result(P_fail=P_fail, FOM=FOM, num=self.y.shape[0], used_time=time.time() - now_time, seed=self.seed)
+        self.save_result(P_fail=P_fail, FOM=FOM, num=self.y.shape[0], used_time=time.time() - now_time)
         print(f" # IS sample: {self.y.shape[0]}, fail_rate: {P_fail}, FOM: {FOM}")
         i=0
         while ((FOM>0.01) and (self.y.shape[0]<max_num)) or (i<40):
@@ -129,18 +128,16 @@ class MC():
             if IS_bound_on:
                 x = self._IS_bound(x, IS_bound_num)
             num_mc = x.shape[0]
-            print(x.shape())
+            print(x.shape)
             y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x)
             new_y = y.reshape(num_mc,1)
-            folder_path = '/home/lixy/OpenYield-main/sim2'
-            delete_folder_content(folder_path)
-            self.save_y_to_txt(new_y,'/home/lixy/yield_models/model/output_read.txt')
+            self.save_y_to_txt(new_y, delay_output)
             self.y = np.vstack([self.y, new_y])
 
             P_fail, FOM = self._evaluate(self.y, P_fail_list, FOM_use_num)
             P_fail_list = np.hstack([P_fail_list, P_fail])
 
-            self.save_result(P_fail=P_fail, FOM=FOM, num=self.y.shape[0], used_time=time.time() - now_time, seed=self.seed)
+            self.save_result(P_fail=P_fail, FOM=FOM, num=self.y.shape[0], used_time=time.time() - now_time)
             print(f"[MC] # IS sample: {self.y.shape[0]}, fail_rate: {P_fail}, FOM: {FOM}")
             i += 1
 

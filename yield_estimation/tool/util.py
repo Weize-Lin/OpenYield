@@ -5,7 +5,6 @@ import time
 import numpy as np
 import torch
 import random
-from  prettytable import PrettyTable
  
 #将一个 Python 对象以二进制形式保存到指定的文件（存取操作）
 def save_obj(obj,fname):
@@ -93,6 +92,8 @@ def print_metrics_v2(metrics, metric_names):
         :type: a list,
          eg, ['r2', 'rmse', 'mnll']
     """
+    from prettytable import PrettyTable
+
     model_names = metrics.keys()
     table = PrettyTable(['model'] + metric_names)
 
