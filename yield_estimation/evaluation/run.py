@@ -20,6 +20,7 @@ from main_sram import build_testbench, configure
 from sram_compiler.per_device_mc.netlist import MC_PARAMS, parse_spice_models
 from sram_compiler.version import VERSION
 from yield_estimation.model_lib.MC import MC
+from yield_estimation.evaluation.outcomes import classify_read, threshold_seconds, RULE_VERSION
 
 ROOT = Path(__file__).resolve().parents[2]
 CASE = "sram_6t_3x2_read"
@@ -50,8 +51,7 @@ def read_config(path):
             raise ValueError(f"{key} must be positive")
     if config["temperature_c"] <= -273.15:
         raise ValueError("temperature_c must be above absolute zero")
-    if config["threshold_ns"] * 1e-9 == 0:
-        raise ValueError("threshold_ns is too small to represent in seconds")
+    threshold_seconds(config["threshold_ns"])
     if type(config["seed"]) is not int or not 0 <= config["seed"] < 2**32:
         raise ValueError("seed must be an integer from 0 to 4294967295")
     for key in ("budget", "batch_size"):
@@ -102,7 +102,7 @@ class RecordedReadTestbench:
         self.output = output
         self.budget = config["budget"]
         self.temperature = config["temperature_c"]
-        self.threshold_s = config["threshold_ns"] * 1e-9
+        self.threshold_s = threshold_seconds(config["threshold_ns"])
         self.submitted = 0
         self.returned = 0
         self.functional_failures = 0
@@ -145,14 +145,10 @@ class RecordedReadTestbench:
 
         rows = []
         for index, delay in enumerate(delays):
-            if np.isnan(delay):
-                outcome = "read_functional_failure"
-                self.functional_failures += 1
-            elif delay > self.threshold_s:
-                outcome = "timing_failure"
-                self.timing_failures += 1
-            else:
-                outcome = "pass"
+            # The retained-failure simulator returns NaN only after electrical checks.
+            outcome = classify_read(delay, self.threshold_s, functional_failure=np.isnan(delay))
+            self.functional_failures += outcome == "read_functional_failure"
+            self.timing_failures += outcome == "timing_failure"
             rows.append((first + index + 1, batch.name, index,
                          "" if np.isnan(delay) else float(delay), outcome))
         self.returned += len(delays)
@@ -224,6 +220,7 @@ def run_evaluation(config, output):
     revision, modified = source_revision()
     summary = dict(
         config, algorithm="repository_MC", compiler_version=VERSION,
+        outcome_rule_version=RULE_VERSION,
         git_revision=revision, git_tracked_files_modified=modified,
         rows=ROWS, cols=COLS, target=list(TARGET),
         process_param_format=PARAMETER_FORMAT, variation_mode="custom",
@@ -263,7 +260,7 @@ def run_evaluation(config, output):
             IS_bound_num=1, initial_num=config["batch_size"], sample_num=config["batch_size"],
             seed=config["seed"],
         )
-        algorithm.threshold = config["threshold_ns"] * 1e-9
+        algorithm.threshold = threshold_seconds(config["threshold_ns"])
         os.chdir(output)
         estimates, _ = algorithm.start_estimate(max_num=config["budget"], fixed_budget=True)
         failures = recorder.functional_failures + recorder.timing_failures
