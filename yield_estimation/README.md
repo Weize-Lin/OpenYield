@@ -108,3 +108,5 @@ See [the Chinese usage and acceptance record](evaluation/MNIS_PORTING.md) for th
 ## 多算法统一诊断入口
 
 MC、MNIS、AIS、ACS、HSCS 的接入状态、参数、限制与读写分工见 [零基础接入说明](evaluation/ADAPTIVE_PORTING.md)。这不是合格的算法排行榜。
+
+[共同电路配置和用法](evaluation/CONFIGURABLE_CIRCUIT.md)说明如何在两个入口使用同一份配置。

@@ -90,6 +90,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         if not summary["xyce"]:
             raise RuntimeError("Xyce not found; activate openyield")
         means, target, bench = build_evaluation_case(config, options, output, summary)
+        summary["nominal_parameters"] = means.tolist()
         recorder = RecordedReadTestbench(bench, output, config)
         algorithm = MNIS(recorder, target, len(means), means, .01, initial_failures,
                          initial_batch, estimation_batch, 13, .24, 1,

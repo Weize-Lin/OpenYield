@@ -63,6 +63,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         if not summary["xyce"]:
             raise RuntimeError("Xyce not found; activate openyield")
         means, target, bench = build_evaluation_case(config, options, output, summary)
+        summary["nominal_parameters"] = means.tolist()
         recorder_class = RecordedMixedSearchTestbench if algorithm_name == "hscs" else RecordedReadTestbench
         recorder = recorder_class(bench, output, config)
         if algorithm_name == "ais":
