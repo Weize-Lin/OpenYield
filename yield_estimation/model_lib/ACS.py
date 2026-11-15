@@ -1,23 +1,20 @@
 import os
 import time
-import sys
+from pathlib import Path
 import numpy as np
-parent_dir_of_code1 = '/home/lixy/sram_yield_estimation/tool'
-sys.path.append(parent_dir_of_code1) 
-from tool.util import write_data2csv, seed_set
-from tool.delete import delete_folder_content
-from tool.Distribution.normal_v1 import norm_dist
-from tool.Distribution.gmm_v2 import mixture_gaussian
-from tool.Distribution.multi_cone_cluster import cone_cluster
+from yield_estimation.tool.util import write_data2csv, seed_set
+from yield_estimation.tool.Distribution.normal_v1 import norm_dist
+from yield_estimation.tool.Distribution.gmm_v2 import mixture_gaussian
+from yield_estimation.tool.Distribution.multi_cone_cluster import cone_cluster
 import mpmath as mp
 
 class ACS():
     threshold = 3.745662e-09
     _BOUND_FILE_MAP = {
-        18: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_18_bound.txt',
-        108: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_108_bound.txt',  
-        576: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_576.txt',
-        2304: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_2304.txt'
+        18: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_18_bound.txt',
+        108: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_108_bound.txt',
+        576: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_bound_576.txt',
+        2304: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_bound_2304.txt'
     }
     def __init__(self,mc_testbench, feature_num, IS_bound_num, IS_bound_on, f_norm, g_cal_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, seed):
         """
@@ -159,9 +156,7 @@ class ACS():
             num_mc = new_x.shape[0]
             y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
             new_y = y.reshape(num_mc,1)
-            self.save_y_to_txt(new_y,'/home/lixy/yield_models/model/output.txt')
-            folder_path = '/home/lixy/sim2'
-            delete_folder_content(folder_path)
+
             y_labels = self.indicator(new_y).reshape([-1])
 
             if y_labels.any() == True:
@@ -211,9 +206,7 @@ class ACS():
         num_mc = self.x_fail.shape[0]
         y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_fail)
         self.y_fail = y.reshape(num_mc,1)
-        self.save_y_to_txt(self.y_fail,'/home/lixy/yield_models/model/output1.txt')
-        folder_path = '/home/lixy/sim2'
-        delete_folder_content(folder_path)
+
         k = round(np.sqrt(initial_fail_num))
         d = self.x_fail.shape[-1]
         classifier = cone_cluster(cluster_num=k, dim=self.x_fail.shape[-1]) # K-means classifier
@@ -240,9 +233,7 @@ class ACS():
             num_mc = x_IS.shape[0]
             y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
             y_IS = y.reshape(num_mc,1)
-            self.save_y_to_txt(y_IS,'/home/lixy/yield_models/model/output1.txt')
-            folder_path = '/home/lixy/sim2'
-            delete_folder_content(folder_path)
+
             # collect only the failed samples from the IS samples
             new_x_fail, new_y_fail = self._identify_fail(x=x_IS, y=y_IS)
             self.x_fail = np.vstack([self.x_fail, new_x_fail])

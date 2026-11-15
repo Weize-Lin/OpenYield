@@ -2,22 +2,19 @@ import numpy as np
 import torch
 import pandas as pd
 import os
-import sys
+from pathlib import Path
 import time
-parent_dir_of_code1 = '/home/lixy/sram_yield_estimation/'
-sys.path.append(parent_dir_of_code1) 
-from tool.util import write_data2csv, seed_set
-from tool.delete import delete_folder_content
-from tool.Distribution.normal_v1 import norm_dist
-from tool.Distribution.gmm_v2 import mixture_gaussian
+from yield_estimation.tool.util import write_data2csv, seed_set
+from yield_estimation.tool.Distribution.normal_v1 import norm_dist
+from yield_estimation.tool.Distribution.gmm_v2 import mixture_gaussian
 import torch.nn as nn
 class AIS(nn.Module):
     threshold = 3.745662e-09
     _BOUND_FILE_MAP = {
-        18: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_18_bound.txt',
-        108: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_108_bound.txt',  
-        576: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_576.txt',
-        2304: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_2304.txt'
+        18: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_18_bound.txt',
+        108: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_108_bound.txt',
+        576: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_bound_576.txt',
+        2304: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_bound_2304.txt'
     }
     # Constructor for AIS class, used to initialize an instance
     def __init__(self, f_norm, mc_testbench, IS_bound_num, IS_bound_on, feature_num, g_cal_num=1, origin_sam_bound_num=1, initial_failed_data_num=100,
@@ -111,8 +108,7 @@ class AIS(nn.Module):
             num_mc = new_x.shape[0]
             y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
             new_y = y.reshape(num_mc,1)
-            folder_path = '/home/lixy/sim1'
-            delete_folder_content(folder_path)
+
             y_labels = self.indicator_func(new_y).reshape([-1])
 
             if y_labels.any() == True:
@@ -244,8 +240,7 @@ class AIS(nn.Module):
         num_mc = self.x_samples.shape[0]
         y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_samples)
         self.y_samples= y.reshape(num_mc,1)
-        folder_path = '/home/lixy/sim1'
-        delete_folder_content(folder_path)
+
         fail_rate_list = []
         FOM_list = []
         data_num_list = []
@@ -275,8 +270,7 @@ class AIS(nn.Module):
             num_mc = IS_x_samples.shape[0]
             y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=IS_x_samples)
             IS_y_samples = y.reshape(num_mc,1)
-            folder_path = '/home/lixy/sim1'
-            delete_folder_content(folder_path)
+
             #  Compute log f(x), log g(x)和I(x)
             log_f_val, log_g_val, I_val = self._calculate_val(IS_x_samples, IS_y_samples, f_norm, norm_mixture)
             # calculate the weight of each x

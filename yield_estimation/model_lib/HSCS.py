@@ -1,21 +1,18 @@
 import numpy as np  
-import sys
+from pathlib import Path
 import torch.nn as nn
 from sklearn.cluster import KMeans
 import os
 import time
-parent_dir_of_code1 = '/home/lixy/sram_yield_estimation/'
-sys.path.append(parent_dir_of_code1) 
-from tool.util import write_data2csv, seed_set
-from tool.delete import delete_folder_content
-from tool.Distribution.gmm_v2 import mixture_gaussian
+from yield_estimation.tool.util import write_data2csv, seed_set
+from yield_estimation.tool.Distribution.gmm_v2 import mixture_gaussian
 class HSCS(nn.Module):
     threshold = 3.745662e-09
     _BOUND_FILE_MAP = {
-        18: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_18_bound.txt',
-        108: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_108_bound.txt',  
-        576: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_576.txt',
-        2304: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_2304.txt'
+        18: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_18_bound.txt',
+        108: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_108_bound.txt',
+        576: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_bound_576.txt',
+        2304: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_bound_2304.txt'
     }
     def __init__(self, f_norm, mc_testbench,means, feature_num, g_var_num=1, bound_num=1, IS_sample_num=100,
                        initial_failed_data_num=50, sample_num_each_sphere=1000,
@@ -117,8 +114,7 @@ class HSCS(nn.Module):
             y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
             new_y = y.reshape(num_mc,1)
             y_labels = self.indicator_func(new_y).reshape([-1])
-            folder_path = '/home/lixy/sim3'
-            delete_folder_content(folder_path)
+
             if y_labels.any() == True:
                 failed_x = new_x[y_labels]
 
@@ -234,8 +230,7 @@ class HSCS(nn.Module):
                 num_mc = samples.shape[0]
                 y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='write', target_row=self.num_rows-1, target_col=self.num_cols-1, mc_runs=num_mc, vars=samples)
                 samples_y = y.reshape(num_mc,1)  
-                folder_path = '/home/lixy/sim3'
-                delete_folder_content(folder_path)
+
                 if self.indicator_func(samples_y).any():
                     R_max = R
                 else:
@@ -351,8 +346,7 @@ class HSCS(nn.Module):
         num_mc = self.x_samples.shape[0]
         y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_samples)
         self.y_samples = y.reshape(num_mc,1)
-        folder_path = '/home/lixy/sim3'
-        delete_folder_content(folder_path)
+
         self.weights = self.get_weights(self.x_samples)
 
         # run WS K-means
@@ -387,8 +381,7 @@ class HSCS(nn.Module):
             num_mc = x_IS.shape[0]
             y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
             y_IS = y.reshape(num_mc,1) 
-            folder_path = '/home/lixy/sim3'
-            delete_folder_content(folder_path)
+
             log_f_IS_val, log_g_IS_val, I_IS_val = self._calculate_val(x_IS, y_IS, f_norm, mix_model_val)
 
             # P_f using IS samples of this round
