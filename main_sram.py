@@ -283,7 +283,9 @@ def main(circuit_options=None, *, run_xyce=RUN_XYCE) -> None:
     cell_6t = options["cell_6t"]
     cell_type = config.global_config.sram_cell_type
     custom_vars = get_custom_vars(config, cell_type) if variation_mode == "custom" else None
-    requested = config.global_config.monte_carlo_runs if MC_RUNS is None else MC_RUNS
+    requested = MC_RUNS
+    if requested is None and variation_mode in ("shared", "per-device"):
+        requested = config.global_config.monte_carlo_runs
     mc_runs = resolve_mc_runs(requested, variation_mode, custom_vars)
     target_row, target_col = options["target"]
     equivalent = resolve_equivalent(config.global_config.equivalent
