@@ -4,6 +4,10 @@ import os
 from pathlib import Path
 from yield_estimation.tool.util import write_data2csv, seed_set
 from yield_estimation.tool.Distribution.normal_v1 import norm_dist
+class MNISBudgetReached(RuntimeError):
+    """The next full batch does not fit; no simulator call was made."""
+
+
 class MNIS():
     threshold = 3.745662e-09
     _BOUND_FILE_MAP = {
@@ -27,6 +31,23 @@ class MNIS():
         self.up_bounds = bounds[0, :]
         self.low_bounds = bounds[1, :]
         self.bound = np.vstack([self.low_bounds, self.up_bounds])
+    def _simulate(self, x):
+        count = x.shape[0]
+        if self.strict_budget and self.submitted_samples + count > self.sample_budget:
+            raise MNISBudgetReached(
+                f"Used {self.submitted_samples}/{self.sample_budget}; "
+                f"next {self.phase} batch needs {count}"
+            )
+        self.submitted_samples += count
+        self.phase_samples[self.phase] += count
+        result = self.mc_testbench.run_mc_simulation(
+            operation='read', target_row=1, target_col=1, mc_runs=count, vars=x,
+        )
+        if np.asarray(result[0]).size != count:
+            raise RuntimeError("MNIS simulator returned an unexpected number of delays")
+        self.returned_samples += count
+        return result
+
     def save_y_to_txt(self, y, file_path):
         if len(y.shape) != 2 or y.shape[1] != 1:
             raise ValueError("输入的数组不是 n*1 的形状。")
@@ -84,7 +105,7 @@ class MNIS():
                                       size=[sample_num_each_sphere, feat_num])
             num_mc = new_x.shape[0]
             #print(num_mc)
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
+            y, w_pavg, _, _ = self._simulate(new_x)
             new_y = y.reshape(num_mc,1)
             # print(new_y)
             y_labels = self.indicator(new_y).reshape([-1])
@@ -104,7 +125,7 @@ class MNIS():
             print(iter_count, y_labels.any())
 
         x_samples = x_samples[0:initial_fail_num, :]  # discard excess samples
-        sample_total_num = (iter_count + 1) * sample_num_each_sphere
+        sample_total_num = iter_count * sample_num_each_sphere
         return x_samples, sample_total_num
 
     def _IS_bound(self, x, IS_bound_num):
@@ -114,7 +135,7 @@ class MNIS():
         x[x>high_bound_full] = high_bound_full[x>high_bound_full]
         return x
 
-    def start_estimate(self, max_num=None):
+    def start_estimate(self, max_num=None, *, strict_budget=False):
         """
             call this function to start the yield estimation process,
             and the numerical results will be saved in "./results/MNIS_case3.csv" automatically.
@@ -127,15 +148,29 @@ class MNIS():
             :param FOM_num: the used number of latest fail rates to calculate FOM
         """
 
+        if strict_budget and (type(max_num) is not int or max_num < 1):
+            raise ValueError("Strict MNIS budget must be a positive integer")
+        if any(type(n) is not int or n < 1 for n in
+               (self.initial_fail_num, self.initial_sample_each, self.IS_num)):
+            raise ValueError("MNIS sample counts must be positive integers")
+        self.strict_budget = strict_budget
+        self.sample_budget = max_num
+        self.submitted_samples = 0
+        self.returned_samples = 0
+        self.phase_samples = dict(initialization=0, recheck=0, estimation=0)
+        self.phase = 'initialization'
+        self.last_estimate = None
         f_norm, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num = self.f_norm, self.g_sam_val, self.initial_fail_num, self.initial_sample_each, self.IS_num, self.FOM_num
         IS_bound_num, IS_bound_on, g_cal_val = self.IS_bound_num, self.IS_bound_on, self.g_cal_val
         feature_num = self.feature_num
         means = self.means
         time1 = time.time()
         self.x_fail, origin_sample_num = self._initial_sampling(initial_fail_num, initial_sample_each)
+        self.phase = 'recheck'
         num_mc = self.x_fail.shape[0]
-        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_fail)
+        y, w_pavg, _, _ = self._simulate(self.x_fail)
         self.y_fail = y.reshape(num_mc,1)
+        origin_sample_num = self.submitted_samples
         #print(self.y_fail)
         centered_x_fail = self.x_fail - means
         distances = np.sqrt((centered_x_fail * centered_x_fail).sum(-1))
@@ -158,10 +193,11 @@ class MNIS():
         if max_num == None:
             max_reach_flag = True
         else:
-            max_reach_flag = iter_count * IS_num + origin_sample_num < max_num
+            max_reach_flag = max_num is None or self.submitted_samples < max_num
         FOM = 1
 
-        while ((max_reach_flag) and (FOM>0.05)) or (iter_count<15):
+        self.phase = 'estimation'
+        while strict_budget or ((max_reach_flag and FOM > 0.05) or iter_count < 15):
             self.label_fail = None
 
             # IS samples
@@ -171,7 +207,7 @@ class MNIS():
                 x_IS = self._IS_bound(x_IS, IS_bound_num)
             num_mc = x_IS.shape[0]
             #print(num_mc)
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
+            y, w_pavg, _, _ = self._simulate(x_IS)
             y_IS = y.reshape(num_mc,1)
             #print(y_IS)
             # get log f(x), log g(x) and I(x)
@@ -191,6 +227,7 @@ class MNIS():
 
             iter_count += 1
 
-            self._save_result(fail_rate, FOM, iter_count*IS_num+origin_sample_num, time.time()-time1, self.seed)
-            print(f"[MNIS] num:{iter_count * IS_num + origin_sample_num}, pfail:{fail_rate}, FOM:{FOM}")
-            max_reach_flag = iter_count * IS_num + origin_sample_num < max_num
+            self.last_estimate = dict(pfail=fail_rate, FOM=FOM, samples=self.submitted_samples)
+            self._save_result(fail_rate, FOM, self.submitted_samples, time.time()-time1, self.seed)
+            print(f"[MNIS] num:{self.submitted_samples}, pfail:{fail_rate}, FOM:{FOM}")
+            max_reach_flag = max_num is None or self.submitted_samples < max_num
