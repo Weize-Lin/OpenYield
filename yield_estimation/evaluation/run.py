@@ -14,7 +14,8 @@ import subprocess
 import sys
 
 import numpy as np
-from scipy.stats import truncnorm
+from scipy.stats import truncnorm, norm
+from scipy.special import log_ndtr
 
 from main_sram import build_testbench, configure
 from sram_compiler.per_device_mc.netlist import MC_PARAMS, parse_spice_models
@@ -92,6 +93,19 @@ class IndependentProcess:
             size=(n, mean.size), random_state=self.rng,
         )
         return values
+
+
+    def log_pdf(self, values):
+        """Log density of exactly the distribution used by sample(), including u0 support."""
+        values = np.atleast_2d(np.asarray(values, dtype=float))
+        if values.shape[1] != self.means.size or not np.isfinite(values).all():
+            raise ValueError("Density input must be finite and have the configured dimensions")
+        terms = norm.logpdf(values, loc=self.means, scale=self.sigma)
+        # Conditioning on u0 > 0 divides its Gaussian density by P(u0 > 0).
+        terms[:, 1::3] -= log_ndtr(self.means[1::3] / self.sigma[1::3])
+        result = terms.sum(axis=1)
+        result[(values[:, 1::3] <= 0).any(axis=1)] = -np.inf
+        return result
 
 
 class RecordedReadTestbench:
