@@ -33,17 +33,17 @@ class RecordedMixedSearchTestbench(RecordedReadTestbench):
         try:
             result = self.testbench.run_mc_simulation(operation=operation,
                 target_row=target_row, target_col=target_col, mc_runs=mc_runs,
-                temperature=self.temperature, vars=samples, process_param_format=PARAMETER_FORMAT)
+                temperature=self.temperature, vars=samples, process_param_format=PARAMETER_FORMAT, retain_write_failures=True)
             delays = np.asarray(result[0], dtype=float).ravel()
-            if len(delays) != mc_runs or not np.isfinite(delays).all() or (delays < 0).any():
+            if len(delays) != mc_runs or np.isinf(delays).any() or (delays < 0).any():
                 raise RuntimeError("Auxiliary write has missing/invalid delay evidence")
         except (Exception, KeyboardInterrupt):
             with (self.output / "auxiliary_write_samples.csv").open("a", newline="") as f:
                 csv.writer(f).writerows((first+i+1,batch.name,i,"","unclassified") for i in range(mc_runs))
             raise
         with (self.output / "auxiliary_write_samples.csv").open("a", newline="") as f:
-            csv.writer(f).writerows((first+i+1,batch.name,i,float(d),
-                "over_search_threshold" if d > self.threshold_s else "within_search_threshold")
+            csv.writer(f).writerows((first+i+1,batch.name,i,"" if np.isnan(d) else float(d),
+                "write_access_failure" if np.isnan(d) else ("over_search_threshold" if d > self.threshold_s else "within_search_threshold"))
                 for i,d in enumerate(delays))
         self.returned += mc_runs
         self.write_returned += mc_runs

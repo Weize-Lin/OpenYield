@@ -1,6 +1,7 @@
 """Run selected MC/MNIS diagnostics sequentially from one frozen configuration."""
 import argparse
 import json
+import math
 from pathlib import Path
 import shlex
 import subprocess
@@ -9,38 +10,55 @@ import sys
 from yield_estimation.evaluation.run import ROOT, read_config, source_revision
 
 MODULES = {"mc": "yield_estimation.evaluation.run",
-           "mnis": "yield_estimation.evaluation.mnis_run"}
+           "mnis": "yield_estimation.evaluation.mnis_run",
+           **{name: "yield_estimation.evaluation.adaptive_run" for name in ("ais", "acs", "hscs")}}
 
 
-def plan(config_path, output, algorithms, initial_batch, initial_failures, estimation_batch):
+def plan(config_path, output, algorithms, initial_batch, initial_failures, estimation_batch,
+         proposal_variance=1.0, allow_hscs_mixed_search=False):
     commands = []
     for algorithm in algorithms:
         command = [sys.executable, "-m", MODULES[algorithm], "--config", str(config_path),
                    "--output-dir", str(output / algorithm)]
-        if algorithm == "mnis":
+        if algorithm != "mc":
             command += ["--initial-batch", str(initial_batch), "--initial-failures",
                         str(initial_failures), "--estimation-batch", str(estimation_batch)]
+        if algorithm in ("ais", "acs", "hscs"):
+            command += ["--algorithm", algorithm, "--proposal-variance", str(proposal_variance)]
+        if algorithm == "hscs" and allow_hscs_mixed_search:
+            command += ["--allow-hscs-mixed-search"]
         commands.append((algorithm, command))
     if set(algorithms) == {"mc", "mnis"}:
         commands.append(("comparison", [sys.executable, "-m",
             "yield_estimation.evaluation.compare_diagnostics",
             "--mc-run", str(output / "mc"), "--mnis-run", str(output / "mnis"),
             "--output-dir", str(output / "comparison")]))
+    elif len(algorithms) > 1:
+        commands.append(("collection", [sys.executable, "-m",
+            "yield_estimation.evaluation.collect_diagnostics", "--runs",
+            *[str(output / name) for name in algorithms], "--output-dir", str(output / "collection")]))
     return commands
 
 
 def execute(config_path, output, algorithms, run_xyce=False,
-            initial_batch=2, initial_failures=1, estimation_batch=1):
+            initial_batch=2, initial_failures=1, estimation_batch=1,
+            proposal_variance=1.0, allow_hscs_mixed_search=False):
     if not algorithms or len(set(algorithms)) != len(algorithms) or any(a not in MODULES for a in algorithms):
-        raise ValueError("Choose mc and/or mnis without duplicates")
+        raise ValueError("Choose supported algorithms without duplicates")
     if any(type(n) is not int or n < 1 for n in (initial_batch, initial_failures, estimation_batch)):
         raise ValueError("MNIS sample settings must be positive integers")
+    if not math.isfinite(proposal_variance) or proposal_variance <= 0:
+        raise ValueError("Proposal variance must be positive and finite")
+    if "hscs" in algorithms and not allow_hscs_mixed_search:
+        raise ValueError("HSCS needs explicit --allow-hscs-mixed-search; auxiliary writes consume budget")
+    if "ais" in algorithms and estimation_batch % initial_failures:
+        raise ValueError("AIS estimation batch must be a multiple of initial failures")
     config = read_config(config_path)
     output = output.resolve()
     if output.exists():
         raise FileExistsError(f"Output exists; choose a new directory: {output}")
     commands = plan(output / "experiment.json", output, algorithms,
-                    initial_batch, initial_failures, estimation_batch)
+                    initial_batch, initial_failures, estimation_batch, proposal_variance, allow_hscs_mixed_search)
     for name, command in commands:
         print(name + ": " + shlex.join(command), flush=True)
     if not run_xyce:
@@ -77,7 +95,7 @@ def execute(config_path, output, algorithms, run_xyce=False,
             stage["exit_code"] = result.returncode
             stage["status"] = "process_succeeded" if result.returncode == 0 else "process_failed"
             if result.returncode == 0:
-                report = output / name / ("comparison.json" if name == "comparison" else "run_summary.json")
+                report = output / name / ("comparison.json" if name in ("comparison", "collection") else "run_summary.json")
                 data = json.loads(report.read_text())
                 stage["result_status"] = data.get("status", data.get("kind"))
                 stage["numeric_status"] = data.get("diagnostics", {}).get("numeric_status")
@@ -116,10 +134,13 @@ def main():
     p.add_argument("--initial-batch", type=int, default=2)
     p.add_argument("--initial-failures", type=int, default=1)
     p.add_argument("--estimation-batch", type=int, default=1)
+    p.add_argument("--proposal-variance", type=float, default=1.0)
+    p.add_argument("--allow-hscs-mixed-search", action="store_true")
     a = p.parse_args()
     try:
         return execute(a.config, a.output_dir, a.algorithms, a.run_xyce,
-                       a.initial_batch, a.initial_failures, a.estimation_batch)
+                       a.initial_batch, a.initial_failures, a.estimation_batch,
+                       a.proposal_variance, a.allow_hscs_mixed_search)
     except (OSError, ValueError) as exc:
         p.exit(2, str(exc) + "\n")
 
