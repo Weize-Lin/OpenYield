@@ -1,4 +1,4 @@
-"""Diagnostic entry for original-proposal MNIS on the configured 6T read case."""
+"""Diagnostic entry for original-proposal MNIS for a configured 6T operation."""
 import argparse
 import csv
 import json
@@ -9,9 +9,10 @@ import shutil
 
 import numpy as np
 from scipy.special import logsumexp
+from yield_estimation.evaluation.outcomes import MeasurementRule
 from yield_estimation.evaluation.run import (
     read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case,
-    RecordedReadTestbench, source_revision, PARAMETER_FORMAT,
+    RecordedAccessTestbench, source_revision, PARAMETER_FORMAT, functional_failure_key,
 )
 from yield_estimation.model_lib.MNIS import MNIS, MNISBudgetReached
 
@@ -66,6 +67,8 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         if type(count) is not int or count < 1:
             raise ValueError("MNIS batch sizes and initial failure count must be positive integers")
     options = evaluation_circuit_options(config)
+    operation = options["operation"]
+    rule = MeasurementRule(operation, config)
     validate_algorithm_case(options, "mnis")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -74,13 +77,13 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
                     skip_zero_target=True, legacy_clipping=False)
     (output / "run_config.json").write_text(json.dumps(config, indent=2))
     (output / "mnis_settings.json").write_text(json.dumps(settings, indent=2))
-    (output / "samples.csv").write_text("sample,batch,xyce_run,read_delay_s,outcome\n")
+    (output / "samples.csv").write_text(f"sample,batch,xyce_run,{rule.column},outcome\n")
     revision, dirty = source_revision()
     summary = dict(config, algorithm="repository_MNIS_original_proposal",
                    git_revision=revision, git_tracked_files_modified=dirty,
                    budget_basis="algorithm_requests_including_recheck_and_zero_target_draws",
                    config_batch_size_note="MC setting; MNIS uses mnis_settings.json",
-                   process_param_format=PARAMETER_FORMAT, settings=settings)
+                   process_param_format=PARAMETER_FORMAT, settings=settings, operation=operation, **rule.metadata())
     algorithm = recorder = None
     original_dir = Path.cwd()
     error = None
@@ -91,11 +94,12 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
             raise RuntimeError("Xyce not found; activate openyield")
         means, target, bench = build_evaluation_case(config, options, output, summary)
         summary["nominal_parameters"] = means.tolist()
-        recorder = RecordedReadTestbench(bench, output, config)
+        recorder = RecordedAccessTestbench(bench, output, config)
         algorithm = MNIS(recorder, target, len(means), means, .01, initial_failures,
                          initial_batch, estimation_batch, 13, .24, 1,
-                         seed=config["seed"], IS_bound_on=False, target=options["target"])
-        algorithm.threshold = config["threshold_ns"] * 1e-9
+                         seed=config["seed"], IS_bound_on=False, target=options["target"], operation=operation)
+        algorithm.threshold = rule.threshold
+        algorithm.indicator = rule.failures
         os.chdir(output)
         algorithm.start_estimate(config["budget"], strict_budget=True, skip_zero_target=True)
         status = "stopped"
@@ -123,9 +127,15 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         pfail_estimate=stats["log_domain_pfail"] if status != "error" else None,
         log10_pfail=stats["log10_pfail"] if status != "error" else None,
         ranking_eligible=False)
+    summary["unclassified_samples"] = recorder.submitted - recorder.returned if recorder else 0
+    if rule.is_snm:
+        summary["margin_failures"] = recorder.margin_failures if recorder else 0
+    else:
+        summary[functional_failure_key(operation)] = recorder.functional_failures if recorder else 0
+        summary["timing_failures"] = recorder.timing_failures if recorder else 0
     with (output / "estimation_draws.csv").open("w", newline="") as stream:
         writer = csv.writer(stream)
-        writer.writerow(["round", "draw", "target_supported", "round_status", "read_delay_s",
+        writer.writerow(["round", "draw", "target_supported", "round_status", rule.column,
                          "failure_indicator", "log_target_density", "log_proposal_density"])
         for i, record in enumerate(records):
             for j, supported in enumerate(record["support"]):
@@ -138,6 +148,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     (output / "run_summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False))
     text = [
         "# 原版提议分布 MNIS 接入诊断", "",
+        f"- 测评：{operation}，{rule.metric} {rule.operator} {rule.threshold_value:g} {rule.unit} 判为超限",
         f"- 状态：{status}；说明：{error}",
         f"- 代码：{revision}；未提交改动：{dirty}",
         f"- 算法预算名额：{summary['algorithm_requested_samples']}/{config['budget']}",
@@ -152,7 +163,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         "这是接入诊断，不能据此给算法排名。没有找到初始失效点时估计留空。",
         "zero_observed_contribution表示本批估算没有非零贡献，不能证明实际失效率为零。",
         "underflow表示普通数字表示不了这么小的估计，应看log10；这也不证明估计准确。",
-        "samples.csv只列实际仿真；estimation_draws.csv列全部估算抽样，范围外样本不伪造读延迟或通过标签。",
+        "samples.csv只列实际仿真；estimation_draws.csv列全部估算抽样，目标工艺范围外的样本不填写电路测量值或判定。",
         "预算按算法请求计费，包括复测和零密度样本；它是实际仿真次数的保守上限，不能称为等实际调用数比较。",
         "原版公式输出保存在original_estimate；对数核对结果另存，未用新提议分布替换原算法。",
     ]

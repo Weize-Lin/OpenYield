@@ -181,7 +181,7 @@ class ACS(RecordedAlgorithm):
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
 
         write_data2csv(tgt_dir=os.path.join("./results/ACS"), 
-                       tgt_name=f"ACS_read_{self.feature_num}.csv",
+                       tgt_name=f"ACS_{self.operation}_{self.feature_num}.csv",
                        head_info=('Pfail', 'FOM', 'num', 'used_time'), 
                        data_info=data_info_list) 
 

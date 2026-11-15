@@ -1,4 +1,4 @@
-"""Run selected MC/MNIS diagnostics sequentially from one frozen configuration."""
+"""Run selected estimators sequentially from one frozen operation and circuit configuration."""
 import argparse
 import json
 import math
@@ -51,12 +51,12 @@ def execute(config_path, output, algorithms, run_xyce=False,
         raise ValueError("MNIS sample settings must be positive integers")
     if not math.isfinite(proposal_variance) or proposal_variance <= 0:
         raise ValueError("Proposal variance must be positive and finite")
-    if "hscs" in algorithms and not allow_hscs_mixed_search:
-        raise ValueError("HSCS needs explicit --allow-hscs-mixed-search; auxiliary writes consume budget")
     if "ais" in algorithms and estimation_batch % initial_failures:
         raise ValueError("AIS estimation batch must be a multiple of initial failures")
     config = read_config(config_path)
     options = evaluation_circuit_options(config)
+    if options["operation"] == "read" and "hscs" in algorithms and not allow_hscs_mixed_search:
+        raise ValueError("HSCS needs explicit --allow-hscs-mixed-search for the read case")
     for algorithm in algorithms:
         validate_algorithm_case(options, algorithm)
     print("Circuit: " + json.dumps(options, sort_keys=True), flush=True)

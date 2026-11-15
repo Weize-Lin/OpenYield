@@ -16,9 +16,10 @@ class MNIS():
         576: 'model_bound_576.txt',
         2304: 'model_bound_2304.txt'
     }
-    def __init__(self, mc_testbench, f_norm, feature_num, means, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, g_cal_val, IS_bound_num, seed=0, IS_bound_on=False, *, target=(1, 1)):
+    def __init__(self, mc_testbench, f_norm, feature_num, means, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, g_cal_val, IS_bound_num, seed=0, IS_bound_on=False, *, target=(1, 1), operation="read"):
         self.mc_testbench = mc_testbench
         self.target = tuple(target)
+        self.operation = operation
         self.feature_num =feature_num
         self.means = means
         self.f_norm, self.g_sam_val, self.initial_fail_num, self.initial_sample_each, self.IS_num, self.FOM_num = f_norm, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num
@@ -46,7 +47,7 @@ class MNIS():
         if charge:
             self._charge(count)
         result = self.mc_testbench.run_mc_simulation(
-            operation='read', target_row=self.target[0], target_col=self.target[1], mc_runs=count, vars=x,
+            operation=self.operation, target_row=self.target[0], target_col=self.target[1], mc_runs=count, vars=x,
         )
         if np.asarray(result[0]).size != count:
             raise RuntimeError("MNIS simulator returned an unexpected number of delays")
@@ -128,7 +129,7 @@ class MNIS():
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
 
         write_data2csv(tgt_dir=os.path.join("./results/MNIS"),
-                       tgt_name=f"MNIS_read_{self.feature_num}.csv",
+                       tgt_name=f"MNIS_{self.operation}_{self.feature_num}.csv",
                        head_info=('Pfail', 'FOM', 'num', 'used_time'),
                        data_info=data_info_list)
 

@@ -640,6 +640,16 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             raise RuntimeError(f'Incomplete write measurements for runs {runs}')
         return np.where(within_limits, delays, np.nan)
 
+    @classmethod
+    def _read_write_periods_for_yield(cls, measurements, vdd, select_every=1):
+        periods = measurements.reindex(columns=["TVOUT_PERIOD"]).to_numpy(dtype=float).ravel()
+        complete, within_limits = cls._access_checks(measurements, "read&write", vdd, select_every)
+        unresolved = ~complete | (within_limits & ~np.isfinite(periods))
+        if unresolved.any():
+            runs = measurements.index[unresolved].tolist()
+            raise RuntimeError(f"Incomplete read&write measurements for runs {runs}")
+        return np.where(within_limits, periods, np.nan)
+
     def _add_precharge_safety_measures(self, simulator, operation):
         """Physical WL must be off throughout each clock-low precharge.
 
@@ -1251,11 +1261,12 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
 
     def run_mc_simulation(self, operation='read', target_row=0, target_col=0,
                           mc_runs=100, temperature=27, vars=None, *,
-                          retain_read_failures=False, process_param_format='.4f', retain_write_failures=False):
+                          retain_read_failures=False, process_param_format='.4f',
+                          retain_write_failures=False, retain_read_write_failures=False):
         """Run Xyce Monte Carlo simulation.
 
-        When retain_read_failures is enabled for a read, confirmed access
-        failures return NaN delays. Unresolved measurements still raise.
+        When the matching retain_*_failures option is enabled, confirmed access
+        failures return NaN measurements. Unresolved measurements still raise.
         """
         # 定义扫描开关与配置键名的对应关系
         # 元组结构: (Config Key, Boolean Switch)
@@ -1443,6 +1454,9 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                     mc_df[delay_name] = read_delays
                 elif operation == "write" and retain_write_failures:
                     read_delays = self._write_delays_for_yield(mc_df, float(self.vdd), self.select_every)
+                    mc_df[delay_name] = read_delays
+                elif operation == "read&write" and retain_read_write_failures:
+                    read_delays = self._read_write_periods_for_yield(mc_df, float(self.vdd), self.select_every)
                     mc_df[delay_name] = read_delays
                 else:
                     valid = self.access_validity(

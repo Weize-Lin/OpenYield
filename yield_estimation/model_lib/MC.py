@@ -18,8 +18,8 @@ class MC():
     }
     def __init__(self, f_norm, mc_testbench, means, feature_num, IS_bound_num, initial_num=10000, sample_num=10, FOM_use_num=10, seed=0, IS_bound_on=False,
                  *, target=(1, 1), use_legacy_bounds=True, operation="read"):
-        if operation not in ("read", "write"):
-            raise ValueError("MC delay evaluation supports read or write")
+        if operation not in ("read", "write", "read&write", "hold_snm", "read_snm", "write_snm"):
+            raise ValueError(f"Unsupported MC operation: {operation}")
         self.operation = operation
         self.x = None   
         self.means = means

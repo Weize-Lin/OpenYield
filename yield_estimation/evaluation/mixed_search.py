@@ -45,7 +45,7 @@ class RecordedMixedSearchTestbench(RecordedReadTestbench):
             raise
         with (self.output / "auxiliary_write_samples.csv").open("a", newline="") as f:
             csv.writer(f).writerows((first+i+1,batch.name,i,"" if np.isnan(d) else float(d),
-                "write_access_failure" if np.isnan(d) else ("over_search_threshold" if d > self.threshold_s else "within_search_threshold"))
+                "write_access_failure" if np.isnan(d) else ("over_search_threshold" if d > self.rule.threshold else "within_search_threshold"))
                 for i,d in enumerate(delays))
         self.returned += mc_runs
         self.write_returned += mc_runs

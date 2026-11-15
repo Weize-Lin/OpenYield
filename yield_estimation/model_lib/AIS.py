@@ -65,7 +65,7 @@ class AIS(RecordedAlgorithm, nn.Module):
     def save_result(self, P_fail, FOM, num, used_time, seed):
             data_info_list = [[P_fail], [FOM], [num], [used_time]]
             write_data2csv(tgt_dir=os.path.join("./results/AIS"),  
-                           tgt_name=f"AIS_read_{self.feature_num}.csv",  
+                           tgt_name=f"AIS_{self.operation}_{self.feature_num}.csv",
                            head_info=('Pfail', 'FOM', 'num', 'used_time'),  
                            data_info=data_info_list)  # 信息
 
@@ -74,7 +74,7 @@ class AIS(RecordedAlgorithm, nn.Module):
         """
             I(X): if the corresponding  y of sample x is failed, return True, otherwise False.
         """
-        return ~np.isfinite(y) | (y > self.threshold) | (y < 0)
+        return self.indicator(y)
 
     def _IS_bound(self, x, IS_bound_num):
         """

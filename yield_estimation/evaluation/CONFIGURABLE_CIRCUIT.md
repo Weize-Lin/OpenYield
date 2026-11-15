@@ -10,7 +10,7 @@
 | `target` | 从 0 开始的行列坐标。新用例省略或写 `null` 时选最后一个单元 |
 | `cell_type` | 当前测评支持 `SRAM_6T_CELL` |
 | `cell_6t` | 四个以米计的正尺寸和三个模型名，顺序与 main_sram.py 一致。写 `null` 时沿用单元 YAML |
-| `operation` | 支持 `read`。直接 MC 也支持 `write` |
+| `operation` | 六种操作见下表 |
 | `variation_mode` | 测评用 `custom`，算法逐批提供抽样参数 |
 | `real_cell_mode` | 当前测评用 `0`，保留全部阵列晶体管 |
 | `w_rc` | 布线端点的局部串联 RC 开关 |
@@ -21,7 +21,7 @@
 直接 MC 按阵列大小决定样本长度。其余四种算法的现有边界数据支持 18、108、576 维，
 即 1、6、32 个 6T 单元。选择超出范围的算法组合会在预览阶段报错。
 这些是接口和数据覆盖范围，新的尺寸、互连和器件组合仍需电路验证。
-HSCS 的辅助写打在最后一行最后一列，最终读失效以 `target` 指定的位置为准。
+在读用例中，HSCS 的辅助写打在最后一行最后一列，最终读失效以 `target` 指定的位置为准。
 
 先预览算法与配置，再用新输出目录加 `--run-xyce` 开始仿真。
 
@@ -45,7 +45,7 @@ python main_sram.py --circuit-config outputs/configurable_read/experiment.json -
 逐条读结果在各算法的 `samples.csv`，HSCS 另有 `auxiliary_write_samples.csv`。
 完整工况和阶段计数在 `run_summary.json`，多算法的并排统计在 `collection/summary.csv`。
 排行榜后续基于独立 MC 参考值、多随机种子、明确的误差指标与预算口径制作。
-读写组合、SNM、10T 和等效阵列还需各自的测评适配与验证。
+10T 和等效阵列还需各自的测评适配与验证。
 
 已完成的小样本验证：
 
@@ -56,21 +56,39 @@ python main_sram.py --circuit-config outputs/configurable_read/experiment.json -
   同一配置选择 MNIS 时，预览阶段已经报出缺少对应的抽样维度。
 
 
-## 直接 MC 写测评
+## 选择操作和门限
 
-复制 `write_6t_configurable.json`，用 `case: sram_6t_write` 和 `circuit.operation: write`。
-`threshold_ns` 是该次写测评的延迟门限。示例中的 0.10 ns 用于流程诊断，正式实验需要按研究目的设定。
+每次运行的配置只选一个操作。MC、MNIS、AIS、ACS、HSCS 都使用该操作对应的测量规则。
+
+| 操作 | `cases/` 下的示例 | 配置门限 | 逐样本数值 |
+| --- | --- | --- | --- |
+| `read` | `read_6t_configurable.json` | `threshold_ns`，读延迟上限 | `read_delay_s` |
+| `write` | `write_6t_configurable.json` | `threshold_ns`，写延迟上限 | `write_delay_s` |
+| `read&write` | `read_write_6t_configurable.json` | `threshold_ns`，输出周期上限 | `output_period_s` |
+| `hold_snm` | `hold_snm_6t_configurable.json` | `threshold_mv`，保持裕量下限 | `hold_snm_v` |
+| `read_snm` | `read_snm_6t_configurable.json` | `threshold_mv`，读裕量下限 | `read_snm_v` |
+| `write_snm` | `write_snm_6t_configurable.json` | `threshold_mv`，写裕量下限 | `write_snm_v` |
+
+- 读写组合沿用 OpenYield 的写 1、读、写 0、读序列。时间判据使用底层 `TVOUT_PERIOD`，
+  即 `OUT` 两次连续上升跨越的间隔；每个受检读写周期另有读回、存储状态和恢复电压检查。
+- 读、写和读写组合的时间量超过上限记为时序失效，有完整电压证据的访问失效单独记。
+  SNM 小于下限记为裕量失效。测量值恰好等于门限时通过。
+- SNM 用例固定单个 6T 单元 `array: [1, 1, false]` 和 `target: [0, 0]`，
+  自定义样本每条 18 维。门限以 mV 配置，账本中实际裕量以 V 保存。
+  若静态扫描无法确定裕量，受影响批次记为无法判定，保留 Xyce 输出和解析调试表。
+- HSCS 读用例显式使用 `--allow-hscs-mixed-search`，辅助写记录另存，费用计入预算。
+  其他五种操作用所选电路操作搜索失效区域。搜索费用计入预算，只有最终估算阶段参与概率估计。
+- 若算法因仿真或证据缺失而中断，保留已完成的账本，不从剩余样本推算整体失效率。
+  启动成功、小样本下溢或没有非零权重都不能用于排名。
+
+例子是在单个 6T 单元上用 MC 测读 SNM：
 
 ```bash
 python -m yield_estimation.evaluation.run_diagnostics \
-  --config yield_estimation/evaluation/cases/write_6t_configurable.json \
-  --algorithms mc --output-dir outputs/example_write_mc --run-xyce
+  --config yield_estimation/evaluation/cases/read_snm_6t_configurable.json \
+  --algorithms mc --output-dir outputs/example_read_snm --run-xyce
 ```
 
-逐样本账本是 `mc/samples.csv`，其 `write_delay_s` 列以秒记录 `TWRITE_TOTAL`。
-写操作达到现有电压检查要求且延迟不超过门限，记为通过。电压证据完整但有一项不合格时，
-记为 `write_functional_failure`。写入正常但超时，记为 `timing_failure`。
-仿真或必要测量无法完成时，受影响批次记为 `unclassified`，整轮失效率及区间留空。
-写失效各类计数和概率保存在 `mc/run_summary.json` 与 `mc/report.md`。
-
-当前写模式只开放 MC。读模式的 HSCS 辅助写仍用来帮助搜索读失效，计入预算并单列。
+将 `--algorithms mc` 换成所需算法列表即可。读写或 SNM 的门限示例用于检查流程，
+实验用值应按研究工况设置。运行后可查看各算法的 `samples.csv`、
+`run_summary.json`、`report.md`，以及多算法运行的 `collection/summary.csv`。

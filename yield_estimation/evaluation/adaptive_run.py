@@ -8,9 +8,10 @@ from pathlib import Path
 import shutil
 
 import numpy as np
+from yield_estimation.evaluation.outcomes import MeasurementRule
 from yield_estimation.evaluation.run import (
     read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case,
-    RecordedReadTestbench, source_revision, PARAMETER_FORMAT,
+    RecordedAccessTestbench, source_revision, PARAMETER_FORMAT, functional_failure_key,
 )
 from yield_estimation.model_lib.AIS import AIS
 from yield_estimation.model_lib.ACS import ACS
@@ -24,8 +25,6 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         algorithm_name="ais", proposal_variance=1.0, allow_hscs_mixed_search=False):
     if algorithm_name not in ("ais", "acs", "hscs"):
         raise ValueError("Choose ais, acs or hscs")
-    if algorithm_name == "hscs" and not allow_hscs_mixed_search:
-        raise ValueError("HSCS uses auxiliary writes to guide read estimation; explicitly allow mixed search")
     if not math.isfinite(proposal_variance) or proposal_variance <= 0:
         raise ValueError("proposal variance must be positive and finite")
     for count in (initial_batch, initial_failures, estimation_batch):
@@ -34,6 +33,11 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
     if algorithm_name == "ais" and estimation_batch % initial_failures:
         raise ValueError("AIS estimation batch must be a multiple of initial failure count")
     options = evaluation_circuit_options(config)
+    operation = options["operation"]
+    rule = MeasurementRule(operation, config)
+    mixed_search = algorithm_name == "hscs" and operation == "read"
+    if mixed_search and not allow_hscs_mixed_search:
+        raise ValueError("HSCS uses auxiliary writes to guide read estimation; explicitly allow mixed search")
     validate_algorithm_case(options, algorithm_name)
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -44,16 +48,19 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
                     proposal_variance=proposal_variance, algorithm=algorithm_name,
                     auxiliary_search=(dict(operation="write", target=[rows - 1, cols - 1], threshold_ns=config["threshold_ns"],
                                            find_samples=1, ratio=0.1, final_operation="read", final_target=options["target"])
-                                      if algorithm_name == "hscs" else None))
+                                      if mixed_search else None))
+    if algorithm_name == "hscs" and not mixed_search:
+        settings["failure_region_search"] = dict(operation=operation, target=options["target"],
+                                                 threshold=rule.threshold_value, unit=rule.unit)
     (output / "run_config.json").write_text(json.dumps(config, indent=2))
     (output / "algorithm_settings.json").write_text(json.dumps(settings, indent=2))
-    (output / "samples.csv").write_text("sample,batch,xyce_run,read_delay_s,outcome\n")
+    (output / "samples.csv").write_text(f"sample,batch,xyce_run,{rule.column},outcome\n")
     revision, dirty = source_revision()
     summary = dict(config, algorithm="repository_" + algorithm_name.upper() + "_configured_proposal",
                    git_revision=revision, git_tracked_files_modified=dirty,
                    budget_basis="submitted_requests_including_recheck",
                    config_batch_size_note="MC setting; adaptive algorithm uses algorithm_settings.json",
-                   process_param_format=PARAMETER_FORMAT, settings=settings)
+                   process_param_format=PARAMETER_FORMAT, settings=settings, operation=operation, **rule.metadata())
     algorithm = recorder = None
     original_dir = Path.cwd()
     error = None
@@ -64,7 +71,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
             raise RuntimeError("Xyce not found; activate openyield")
         means, target, bench = build_evaluation_case(config, options, output, summary)
         summary["nominal_parameters"] = means.tolist()
-        recorder_class = RecordedMixedSearchTestbench if algorithm_name == "hscs" else RecordedReadTestbench
+        recorder_class = RecordedMixedSearchTestbench if mixed_search else RecordedAccessTestbench
         recorder = recorder_class(bench, output, config)
         if algorithm_name == "ais":
             algorithm = AIS(target, recorder, 1, False, len(means),
@@ -80,7 +87,9 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
                 sample_num_each_sphere=initial_batch, find_MN_sam_num=1, seed=config["seed"],
                 IS_bound_on=False, num_rows=rows, num_cols=cols)
         algorithm.read_target = tuple(options["target"])
-        algorithm.threshold = config["threshold_ns"] * 1e-9
+        algorithm.operation = operation
+        algorithm.threshold = rule.threshold
+        algorithm.indicator = rule.failures
         os.chdir(output)
         algorithm.start_estimate(config["budget"], strict_budget=True)
         status = "stopped"
@@ -112,9 +121,15 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         pfail_estimate=stats["log_domain_pfail"] if status != "error" else None,
         log10_pfail=stats["log10_pfail"] if status != "error" else None,
         ranking_eligible=False)
+    summary["unclassified_samples"] = recorder.submitted - recorder.returned if recorder else 0
+    if rule.is_snm:
+        summary["margin_failures"] = recorder.margin_failures if recorder else 0
+    else:
+        summary[functional_failure_key(operation)] = recorder.functional_failures if recorder else 0
+        summary["timing_failures"] = recorder.timing_failures if recorder else 0
     with (output / "estimation_draws.csv").open("w", newline="") as stream:
         writer = csv.writer(stream)
-        writer.writerow(["round", "draw", "target_supported", "round_status", "read_delay_s",
+        writer.writerow(["round", "draw", "target_supported", "round_status", rule.column,
                          "failure_indicator", "log_target_density", "log_proposal_density"])
         for i, record in enumerate(records):
             for j, supported in enumerate(record["support"]):
@@ -129,6 +144,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         summary["original_estimate"] = {k: str(v) if isinstance(v, float) and not math.isfinite(v) else v for k, v in original.items()}
     (output / "run_summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False))
     text = [f"# {algorithm_name.upper()} 接入诊断", "",
+        f"- 测评：{operation}，{rule.metric} {rule.operator} {rule.threshold_value:g} {rule.unit} 判为超限",
         f"- 状态：{status}；说明：{error}",
         f"- 版本：{revision}；未提交改动：{dirty}",
         f"- 预算：{config['budget']}；提交请求：{summary['algorithm_requested_samples']}",
@@ -144,12 +160,15 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         "request_*.npz 保留每次请求，estimation_*.npz 和 estimation_draws.csv 保留估算密度与标签。",
         "samples.csv 记录实际仿真。原公式结果在 original_estimate，对数核对值另列。",
         "这是接入测试，不是算法排名。少量样本下即使进程成功，也可能没有可靠估计。"]
-    if algorithm_name == "hscs":
+    if mixed_search:
         text += ["", f"辅助写测试：提交 {summary['auxiliary_write_submitted']}，返回 {summary['auxiliary_write_returned']}。",
                  f"读 {options['target']} 找点；写 {[rows - 1, cols - 1]} 辅助选位置；最终估计读 {options['target']} 的失效概率。",
                  "写测试计入总预算，在 auxiliary_write_samples.csv 单列；不计入读失效条数或估算分母。",
                  "沿用原来的同一门限用于辅助写搜索；这不是独立的写良率测试，也未声称这种选点策略有效。",
                  "原算法的球面搜索几何未重新设计；参数范围或仿真证据不满足要求时如实停止。"]
+    if algorithm_name == "hscs" and not mixed_search:
+        text += ["", f"该用例使用 {operation} 进行初始化、失效区域搜索和最终估算，"
+                 "搜索样本计入预算，最终概率仅用估算阶段的样本计算。"]
     (output / "report.md").write_text("\n".join(text) + "\n", encoding="utf-8")
     print(json.dumps({key: summary[key] for key in ("status", "algorithm_requested_samples",
           "simulator_submitted_samples", "simulator_returned_samples", "zero_target_samples",

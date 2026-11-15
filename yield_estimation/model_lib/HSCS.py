@@ -54,7 +54,7 @@ class HSCS(RecordedAlgorithm, nn.Module):
         """
         I(X): if the corresponding  y of sample x is failed, return True, otherwise False.
         """
-        return ~np.isfinite(y) | (y > self.threshold) | (y < 0)
+        return self.indicator(y)
 
     
     def _IS_bound(self, x, IS_bound_num):
@@ -216,8 +216,14 @@ class HSCS(RecordedAlgorithm, nn.Module):
         """
             return the min_norm point of each cluster
         """
-        if not all(type(n) is int and n > 0 for n in (self.num_rows, self.num_cols)):
-            raise ValueError("HSCS mixed search needs explicit positive num_rows and num_cols")
+        if self.operation == "read":
+            if not all(type(n) is int and n > 0 for n in (self.num_rows, self.num_cols)):
+                raise ValueError("HSCS mixed search needs explicit positive num_rows and num_cols")
+            search_operation = "write"
+            search_row, search_col = self.num_rows - 1, self.num_cols - 1
+        else:
+            search_operation = self.operation
+            search_row, search_col = self.read_target
         spend_num = 0
         dim = self.feature_num
         min_norm_points = []
@@ -238,8 +244,8 @@ class HSCS(RecordedAlgorithm, nn.Module):
                 R = (R_max + R_min) / 2
                 samples = self.sample_on_sphere(num=find_MN_sam_num, dim=dim, radius=R,means=means,direction=direction,IS_bound_num=1,IS_bound_on =True)
                 num_mc = samples.shape[0]
-                samples_y = self._simulate(samples, operation="write",
-                    target_row=self.num_rows-1, target_col=self.num_cols-1)
+                samples_y = self._simulate(samples, operation=search_operation,
+                    target_row=search_row, target_col=search_col)
 
                 if self.indicator_func(samples_y).any():
                     R_max = R
@@ -282,7 +288,7 @@ class HSCS(RecordedAlgorithm, nn.Module):
     def save_result(self, P_fail, FOM, num, used_time, seed):
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
         write_data2csv(tgt_dir=os.path.join("./results/HSCS"),  
-                       tgt_name=f"HSCS_read_{self.feature_num}.csv",
+                       tgt_name=f"HSCS_{self.operation}_{self.feature_num}.csv",
                        head_info=('Pfail', 'FOM', 'num', 'used_time'),  
                        data_info=data_info_list)  
 
@@ -366,7 +372,7 @@ class HSCS(RecordedAlgorithm, nn.Module):
         self.x_labels, self.centroids, self.k = self.weighted_sphere_Kmeans(self.x_samples, self.k, self.weights)
 
         # get min norm points
-        self.phase = "write_search"
+        self.phase = "write_search" if self.operation == "read" else "failure_region_search"
         min_norm_points, spend_num = self.find_min_norm(self.x_samples, self.centroids, self.k, means,find_MN_sam_num=find_MN_sam_num)
 
         ratio = ratio

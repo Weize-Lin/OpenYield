@@ -1,4 +1,4 @@
-"""Evaluate direct Monte Carlo for a configured 6T SRAM read or write."""
+"""Evaluate direct Monte Carlo for a configured 6T SRAM operation."""
 from __future__ import annotations
 
 import argparse
@@ -22,35 +22,45 @@ from sram_compiler.per_device_mc.netlist import MC_PARAMS, parse_spice_models
 from sram_compiler.version import VERSION
 from yield_estimation.model_lib.MC import MC
 from yield_estimation.evaluation.outcomes import (
-    classify_read, classify_write, threshold_seconds, RULE_VERSION, WRITE_RULE_VERSION,
-    FUNCTIONAL_FAILURE, WRITE_FUNCTIONAL_FAILURE, TIMING_FAILURE, UNCLASSIFIED,
+    MeasurementRule, threshold_seconds, UNCLASSIFIED,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
 CASE = "sram_6t_3x2_read"
 CONFIGURABLE_CASE = "sram_6t_read"
 WRITE_CASE = "sram_6t_write"
-CASE_OPERATIONS = {CASE: "read", CONFIGURABLE_CASE: "read", WRITE_CASE: "write"}
+CASE_OPERATIONS = {
+    CASE: "read",
+    CONFIGURABLE_CASE: "read",
+    WRITE_CASE: "write",
+    "sram_6t_read_write": "read&write",
+    **{f"sram_6t_{operation}": operation for operation in MeasurementRule.SNM_OPERATIONS},
+}
 ROWS, COLS = 3, 2
 TARGET = (1, 1)
 PARAMETER_FORMAT = ".17g"
 FIELDS = {
     "case", "corner", "vdd", "temperature_c", "relative_std", "u0_positive",
-    "threshold_ns", "seed", "budget", "batch_size",
+    "seed", "budget", "batch_size",
 }
 
 
 def read_config(path):
     config = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(config, dict) or config.keys() - {"circuit"} != FIELDS:
-        raise ValueError(f"Configuration needs the optional circuit block and the following required fields: {', '.join(sorted(FIELDS))}")
-    if not isinstance(config["case"], str) or config["case"] not in CASE_OPERATIONS:
+    if not isinstance(config, dict):
+        raise ValueError("Evaluation configuration must be a JSON object")
+    case = config.get("case")
+    if not isinstance(case, str) or case not in CASE_OPERATIONS:
         raise ValueError(f"Supported cases: {', '.join(CASE_OPERATIONS)}")
+    operation = CASE_OPERATIONS[case]
+    required = FIELDS | {MeasurementRule.threshold_key_for(operation)}
+    if config.keys() - {"circuit"} != required:
+        raise ValueError(f"{operation} requires an optional circuit block and these fields: {', '.join(sorted(required))}")
     if config["corner"] not in ("TT", "FF", "SS", "FS", "SF"):
         raise ValueError("corner must be TT, FF, SS, FS or SF")
     if config["u0_positive"] is not True:
         raise ValueError("u0_positive must be true for the supported process distribution")
-    for key in ("vdd", "temperature_c", "relative_std", "threshold_ns"):
+    for key in ("vdd", "temperature_c", "relative_std"):
         value = config[key]
         if type(value) not in (int, float) or not math.isfinite(value):
             raise ValueError(f"{key} must be a finite number")
@@ -58,7 +68,7 @@ def read_config(path):
             raise ValueError(f"{key} must be positive")
     if config["temperature_c"] <= -273.15:
         raise ValueError("temperature_c must be above absolute zero")
-    threshold_seconds(config["threshold_ns"])
+    MeasurementRule(operation, config)
     if type(config["seed"]) is not int or not 0 <= config["seed"] < 2**32:
         raise ValueError("seed must be an integer from 0 to 4294967295")
     for key in ("budget", "batch_size"):
@@ -76,7 +86,8 @@ def evaluation_circuit_options(config):
     operation = CASE_OPERATIONS[config["case"]]
     defaults = circuit_defaults()
     default_target = list(TARGET) if config["case"] == CASE else None
-    defaults.update(array=[ROWS, COLS, False], target=default_target, cell_type="SRAM_6T_CELL",
+    array = [1, 1, False] if operation in MeasurementRule.SNM_OPERATIONS else [ROWS, COLS, False]
+    defaults.update(array=array, target=default_target, cell_type="SRAM_6T_CELL",
                     cell_6t=None, operation=operation, variation_mode="custom",
                     real_cell_mode=0, corner=config["corner"], vdd=config["vdd"],
                     temperature_c=config["temperature_c"])
@@ -91,6 +102,8 @@ def evaluation_circuit_options(config):
                        ("variation_mode", "custom"), ("real_cell_mode", 0)):
         if options[key] != value:
             raise ValueError(f"Current yield evaluation requires circuit.{key}={value!r}")
+    if operation in MeasurementRule.SNM_OPERATIONS and options["array"] != [1, 1, False]:
+        raise ValueError("SNM simulates a single cell; set circuit.array to [1, 1, false]")
     return options
 
 
@@ -100,8 +113,6 @@ def access_case_dimensions(options):
 
 
 def validate_algorithm_case(options, algorithm):
-    if options["operation"] == "write" and algorithm != "mc":
-        raise ValueError("Write evaluation currently supports MC only; select --algorithms mc")
     dimensions = access_case_dimensions(options)
     # The four importance samplers initialize from the checked-in box bounds.
     # MNIS also uses dimension-specific proposal variances for these sizes.
@@ -189,16 +200,17 @@ class RecordedAccessTestbench:
         self.testbench = testbench
         self.options = evaluation_circuit_options(config)
         self.operation = self.options["operation"]
+        self.rule = MeasurementRule(self.operation, config)
         self.target = tuple(self.options["target"])
         self.dimensions = access_case_dimensions(self.options)
         self.output = output
         self.budget = config["budget"]
         self.temperature = config["temperature_c"]
-        self.threshold_s = threshold_seconds(config["threshold_ns"])
         self.submitted = 0
         self.returned = 0
         self.functional_failures = 0
         self.timing_failures = 0
+        self.margin_failures = 0
 
     def write_rows(self, rows):
         with (self.output / "samples.csv").open("a", encoding="utf-8", newline="") as stream:
@@ -222,33 +234,37 @@ class RecordedAccessTestbench:
         self.submitted += mc_runs
         print(f"MC: submitted {self.submitted}/{self.budget} samples", flush=True)
         try:
+            retain = {}
+            if not self.rule.is_snm:
+                flag = "retain_read_write_failures" if operation == "read&write" else f"retain_{operation}_failures"
+                retain[flag] = True
             result = self.testbench.run_mc_simulation(
                 operation=operation, target_row=target_row, target_col=target_col,
                 mc_runs=mc_runs, temperature=self.temperature, vars=samples,
-                process_param_format=PARAMETER_FORMAT,
-                **{f"retain_{operation}_failures": True},
+                process_param_format=PARAMETER_FORMAT, **retain,
             )
-            delays = np.asarray(result[0], dtype=float).ravel()
-            if len(delays) != mc_runs or np.isinf(delays).any() or (delays < 0).any():
-                raise RuntimeError(f"Unexpected {operation} delay values or sample count")
+            values = np.asarray(result if self.rule.is_snm else result[0], dtype=float).ravel()
+            if len(values) != mc_runs or np.isinf(values).any() or (values < 0).any():
+                raise RuntimeError(f"Unexpected {operation} measurements or sample count")
+            if self.rule.is_snm and not np.isfinite(values).all():
+                raise RuntimeError(f"Unresolved {operation} margin; inspect the batch debug CSV and raw sweep")
         except (Exception, KeyboardInterrupt):
             self.write_rows((first + i + 1, batch.name, i, "", UNCLASSIFIED)
                             for i in range(mc_runs))
             raise
 
         rows = []
-        classify = classify_read if operation == "read" else classify_write
-        failure_outcome = FUNCTIONAL_FAILURE if operation == "read" else WRITE_FUNCTIONAL_FAILURE
-        for index, delay in enumerate(delays):
-            # The retained-failure simulator returns NaN only after electrical checks.
-            outcome = classify(delay, self.threshold_s, functional_failure=np.isnan(delay))
-            self.functional_failures += outcome == failure_outcome
-            self.timing_failures += outcome == TIMING_FAILURE
+        for index, value in enumerate(values):
+            # Transient NaN arrives only with electrical evidence of access failure.
+            outcome = self.rule.classify(value)
+            self.functional_failures += outcome == self.rule.functional_failure
+            self.timing_failures += outcome == "timing_failure"
+            self.margin_failures += outcome == "margin_failure"
             rows.append((first + index + 1, batch.name, index,
-                         "" if np.isnan(delay) else float(delay), outcome))
-        self.returned += len(delays)
+                         "" if np.isnan(value) else float(value), outcome))
+        self.returned += len(values)
         self.write_rows(rows)
-        return result
+        return (values, None, None, None) if self.rule.is_snm else result
 
 
 class RecordedReadTestbench(RecordedAccessTestbench):
@@ -271,19 +287,21 @@ def wilson_interval(failures, samples):
 
 def write_report(output, summary):
     operation = summary.get("operation", "read")
-    functional = summary[f"{operation}_functional_failures"]
+    rule = MeasurementRule(operation, summary)
+    functional = summary.get(functional_failure_key(operation), 0)
     text = [
         f"# Monte Carlo SRAM {operation} evaluation", "",
         f"- Circuit: {summary['rows']}×{summary['cols']} 6T SRAM, target cell {summary['target']}, OpenYield {VERSION}",
         f"- Conditions: {summary['corner']}, {summary['vdd']} V, {summary['temperature_c']} °C",
         f"- Process: {summary['relative_std']:.2%} relative Gaussian scale, conditioned on positive u0",
-        f"- {operation.capitalize()} delay limit: {summary['threshold_ns']:g} ns",
+        f"- Measured {rule.metric}. Failure threshold: value {rule.operator} {rule.threshold_value:g} {rule.unit}",
         f"- Seed: {summary['seed']}",
         f"- Revision: {summary['git_revision'] or 'unavailable'}",
         f"- Requested: {summary['requested_samples']} / {summary['budget']}",
         f"- Classified: {summary['returned_rows']}",
-        f"- {operation.capitalize()} functional failures: {functional}",
-        f"- Timing failures: {summary['timing_failures']}",
+        (f"- Margin failures: {summary['margin_failures']}" if rule.is_snm else
+         f"- {operation.capitalize()} functional failures: {functional}"),
+        *([] if rule.is_snm else [f"- Timing failures: {summary['timing_failures']}"]),
         f"- Unclassified: {summary['unclassified_samples']}", "",
     ]
     if summary["pfail_estimate"] is None:
@@ -315,25 +333,31 @@ def source_revision():
     return revision, any(line and not line.startswith("# ") for line in lines)
 
 
+def functional_failure_key(operation):
+    return operation.replace("&", "_") + "_functional_failures"
+
+
 def run_evaluation(config, output):
     options = evaluation_circuit_options(config)
     operation = options["operation"]
+    rule = MeasurementRule(operation, config)
     output.mkdir(parents=True, exist_ok=False)
     (output / "run_config.json").write_text(
         json.dumps(config, indent=2, allow_nan=False) + "\n", encoding="utf-8",
     )
     (output / "samples.csv").write_text(
-        f"sample,batch,xyce_run,{operation}_delay_s,outcome\n", encoding="utf-8",
+        f"sample,batch,xyce_run,{rule.column},outcome\n", encoding="utf-8",
     )
     revision, modified = source_revision()
     summary = dict(
         config, algorithm="repository_MC", compiler_version=VERSION,
-        outcome_rule_version=RULE_VERSION if operation == "read" else WRITE_RULE_VERSION,
-        operation=operation, delay_metric="TREAD_TOTAL" if operation == "read" else "TWRITE_TOTAL",
+        operation=operation, **rule.metadata(),
         git_revision=revision, git_tracked_files_modified=modified,
         rows=options["array"][0], cols=options["array"][1], target=options["target"],
         process_param_format=PARAMETER_FORMAT, variation_mode="custom",
     )
+    if not rule.is_snm:
+        summary["delay_metric"] = rule.metric
     recorder = None
     error = None
     original_dir = Path.cwd()
@@ -349,10 +373,11 @@ def run_evaluation(config, output):
             IS_bound_num=1, initial_num=config["batch_size"], sample_num=config["batch_size"],
             seed=config["seed"], target=options["target"], use_legacy_bounds=False, operation=operation,
         )
-        algorithm.threshold = threshold_seconds(config["threshold_ns"])
+        algorithm.threshold = rule.threshold
+        algorithm.indicator = rule.failures
         os.chdir(output)
         estimates, _ = algorithm.start_estimate(max_num=config["budget"], fixed_budget=True)
-        failures = recorder.functional_failures + recorder.timing_failures
+        failures = recorder.functional_failures + recorder.timing_failures + recorder.margin_failures
         if recorder.returned != config["budget"] or not math.isclose(
             estimates[-1], failures / recorder.returned,
         ):
@@ -368,7 +393,8 @@ def run_evaluation(config, output):
     returned = recorder.returned if recorder else 0
     functional = recorder.functional_failures if recorder else 0
     timing = recorder.timing_failures if recorder else 0
-    failures = functional + timing
+    margin = recorder.margin_failures if recorder else 0
+    failures = functional + timing + margin
     complete = error is None
     summary.update(
         status="complete" if complete else "incomplete", error=error,
@@ -378,7 +404,10 @@ def run_evaluation(config, output):
         pfail_estimate=failures / returned if complete else None,
         pfail_interval=wilson_interval(failures, returned) if complete else None,
     )
-    summary[f"{operation}_functional_failures"] = functional
+    if rule.is_snm:
+        summary["margin_failures"] = margin
+    else:
+        summary[functional_failure_key(operation)] = functional
     (output / "run_summary.json").write_text(
         json.dumps(summary, indent=2, allow_nan=False) + "\n", encoding="utf-8",
     )

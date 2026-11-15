@@ -5,11 +5,14 @@ import json
 from pathlib import Path
 
 CONDITIONS = ("case", "corner", "vdd", "temperature_c", "relative_std", "u0_positive",
-              "threshold_ns", "model_sha256", "driver_sizes", "timing", "interconnect", "equivalent")
+              "model_sha256", "driver_sizes", "timing", "interconnect", "equivalent")
 
 
 def condition_mismatches(left, right):
     fields = [k for k in CONDITIONS if k not in left or k not in right or left[k] != right[k]]
+    threshold = "threshold_mv" if "threshold_mv" in left or "threshold_mv" in right else "threshold_ns"
+    if threshold not in left or threshold not in right or left[threshold] != right[threshold]:
+        fields.append(threshold)
     if left.get("resolved_circuit") != right.get("resolved_circuit"):
         fields.append("resolved_circuit")
     return fields
