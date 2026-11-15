@@ -95,6 +95,13 @@ class IndependentProcess:
         return values
 
 
+    def in_support(self, values):
+        """Physical target support, separate from numerical density underflow."""
+        values = np.atleast_2d(np.asarray(values, dtype=float))
+        if values.shape[1] != self.means.size or not np.isfinite(values).all():
+            raise ValueError("Support input must be finite and have the configured dimensions")
+        return (values[:, 1::3] > 0).all(axis=1)
+
     def log_pdf(self, values):
         """Log density of exactly the distribution used by sample(), including u0 support."""
         values = np.atleast_2d(np.asarray(values, dtype=float))

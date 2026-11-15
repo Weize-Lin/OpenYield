@@ -31,8 +31,7 @@ class MNIS():
         self.up_bounds = bounds[0, :]
         self.low_bounds = bounds[1, :]
         self.bound = np.vstack([self.low_bounds, self.up_bounds])
-    def _simulate(self, x):
-        count = x.shape[0]
+    def _charge(self, count):
         if self.strict_budget and self.submitted_samples + count > self.sample_budget:
             raise MNISBudgetReached(
                 f"Used {self.submitted_samples}/{self.sample_budget}; "
@@ -40,6 +39,11 @@ class MNIS():
             )
         self.submitted_samples += count
         self.phase_samples[self.phase] += count
+
+    def _simulate(self, x, *, charge=True):
+        count = x.shape[0]
+        if charge:
+            self._charge(count)
         result = self.mc_testbench.run_mc_simulation(
             operation='read', target_row=1, target_col=1, mc_runs=count, vars=x,
         )
@@ -47,6 +51,39 @@ class MNIS():
             raise RuntimeError("MNIS simulator returned an unexpected number of delays")
         self.returned_samples += count
         return result
+
+    def _supported_estimation(self, x, proposal):
+        """Keep all proposal draws in the denominator; simulate only target-supported rows."""
+        support = np.asarray(self.f_norm.in_support(x), dtype=bool).reshape(-1)
+        if support.size != len(x):
+            raise ValueError("Target support mask has the wrong length")
+        log_f = np.asarray(self.f_norm.log_pdf(x)).reshape(-1)
+        log_g = np.asarray(proposal.log_pdf(x)).reshape(-1)
+        if (log_f.size != len(x) or log_g.size != len(x)
+                or not np.isfinite(log_g).all()
+                or not np.isfinite(log_f[support]).all()
+                or not np.isneginf(log_f[~support]).all()):
+            raise ValueError("Target/proposal log density is inconsistent with explicit support")
+        self._charge(len(x))
+        self.zero_target_samples += int((~support).sum())
+        self.estimation_draws += len(x)
+        indicator = np.zeros(len(x), dtype=bool)
+        # These NaNs are unobserved placeholders, never passed to indicator or a read report.
+        delays = np.full(len(x), np.nan)
+        record = dict(samples=x.copy(), support=support.copy(), log_f=log_f.copy(),
+                      log_g=log_g.copy(), delays=delays, status="pending")
+        self.estimation_records.append(record)
+        if support.any():
+            try:
+                y, _, _, _ = self._simulate(x[support], charge=False)
+                delays[support] = np.asarray(y).ravel()
+                indicator[support] = self.indicator(delays[support])
+            except BaseException:
+                record["status"] = "unresolved"
+                raise
+        record["indicator"] = indicator.copy()
+        record["status"] = "evaluated"
+        return log_f, log_g, indicator
 
     def save_y_to_txt(self, y, file_path):
         if len(y.shape) != 2 or y.shape[1] != 1:
@@ -135,7 +172,7 @@ class MNIS():
         x[x>high_bound_full] = high_bound_full[x>high_bound_full]
         return x
 
-    def start_estimate(self, max_num=None, *, strict_budget=False):
+    def start_estimate(self, max_num=None, *, strict_budget=False, skip_zero_target=False):
         """
             call this function to start the yield estimation process,
             and the numerical results will be saved in "./results/MNIS_case3.csv" automatically.
@@ -153,6 +190,11 @@ class MNIS():
         if any(type(n) is not int or n < 1 for n in
                (self.initial_fail_num, self.initial_sample_each, self.IS_num)):
             raise ValueError("MNIS sample counts must be positive integers")
+        if skip_zero_target and (self.IS_bound_on or not callable(getattr(self.f_norm, "in_support", None))):
+            raise ValueError("Zero-target handling requires explicit support and no sample clipping")
+        self.zero_target_samples = 0
+        self.estimation_draws = 0
+        self.estimation_records = []
         self.strict_budget = strict_budget
         self.sample_budget = max_num
         self.submitted_samples = 0
@@ -207,11 +249,12 @@ class MNIS():
                 x_IS = self._IS_bound(x_IS, IS_bound_num)
             num_mc = x_IS.shape[0]
             #print(num_mc)
-            y, w_pavg, _, _ = self._simulate(x_IS)
-            y_IS = y.reshape(num_mc,1)
-            #print(y_IS)
-            # get log f(x), log g(x) and I(x)
-            log_f_IS_val, log_g_IS_val, I_IS_val = self._calculate_val(x_IS, y_IS, f_norm, g_cal_norm)
+            if skip_zero_target:
+                log_f_IS_val, log_g_IS_val, I_IS_val = self._supported_estimation(x_IS, g_cal_norm)
+            else:
+                y, w_pavg, _, _ = self._simulate(x_IS)
+                y_IS = y.reshape(num_mc,1)
+                log_f_IS_val, log_g_IS_val, I_IS_val = self._calculate_val(x_IS, y_IS, f_norm, g_cal_norm)
 
             # the fail_rate calculated only using IS samples of this iteration round
             fail_rate_this_round = self._calculate_fail_rate_this_round(log_f_IS_val, log_g_IS_val, I_IS_val)
