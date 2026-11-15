@@ -1,0 +1,169 @@
+"""Diagnostic entry for original-proposal MNIS on the configured 3x2 read case."""
+import argparse
+import csv
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import shutil
+
+import numpy as np
+from scipy.special import logsumexp
+from yield_estimation.evaluation.run import (
+    read_config, configure, nominal_parameters, IndependentProcess, build_testbench,
+    RecordedReadTestbench, source_revision, PARAMETER_FORMAT,
+)
+from yield_estimation.model_lib.MNIS import MNIS, MNISBudgetReached
+
+
+def weight_summary(records):
+    completed = [r for r in records if r["status"] == "evaluated"]
+    count = sum(len(r["samples"]) for r in completed)
+    logs = []
+    supported = 0
+    for record in completed:
+        supported += int(record["support"].sum())
+        failure = record["support"] & record["indicator"]
+        logs.extend((record["log_f"][failure] - record["log_g"][failure]).tolist())
+    if not count:
+        return dict(estimation_draws_evaluated=0, supported_estimation_draws=0,
+                    log10_pfail=None, log_domain_pfail=None, numeric_status="no_estimation")
+    if not logs:
+        return dict(estimation_draws_evaluated=count, supported_estimation_draws=supported,
+                    log10_pfail=None, log_domain_pfail=0.0, numeric_status="zero_observed_contribution")
+    value = float(logsumexp(logs) - np.log(count))
+    with np.errstate(over="ignore", under="ignore"):
+        linear = float(np.exp(value))
+    state = "underflow" if linear == 0 else ("overflow" if not math.isfinite(linear) else "representable")
+    return dict(estimation_draws_evaluated=count, supported_estimation_draws=supported,
+                log10_pfail=value / math.log(10),
+                log_domain_pfail=linear if math.isfinite(linear) else None, numeric_status=state)
+
+
+def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1):
+    for count in (initial_batch, initial_failures, estimation_batch):
+        if type(count) is not int or count < 1:
+            raise ValueError("MNIS batch sizes and initial failure count must be positive integers")
+    output = output.resolve()
+    output.mkdir(parents=True, exist_ok=False)
+    settings = dict(initial_batch=initial_batch, initial_failures=initial_failures,
+                    estimation_batch=estimation_batch, strict_budget=True,
+                    skip_zero_target=True, legacy_clipping=False)
+    (output / "run_config.json").write_text(json.dumps(config, indent=2))
+    (output / "mnis_settings.json").write_text(json.dumps(settings, indent=2))
+    (output / "samples.csv").write_text("sample,batch,xyce_run,read_delay_s,outcome\n")
+    revision, dirty = source_revision()
+    summary = dict(config, algorithm="repository_MNIS_original_proposal",
+                   git_revision=revision, git_tracked_files_modified=dirty,
+                   budget_basis="algorithm_requests_including_recheck_and_zero_target_draws",
+                   config_batch_size_note="MC setting; MNIS uses mnis_settings.json",
+                   process_param_format=PARAMETER_FORMAT, settings=settings)
+    algorithm = recorder = None
+    original_dir = Path.cwd()
+    error = None
+    status = "incomplete"
+    try:
+        summary["xyce"] = shutil.which("Xyce")
+        if not summary["xyce"]:
+            raise RuntimeError("Xyce not found; activate openyield")
+        circuit = configure(3, 2, False, config["corner"])
+        circuit.global_config.vdd = config["vdd"]
+        circuit.global_config.temperature = config["temperature_c"]
+        if circuit.global_config.sram_cell_type != "SRAM_6T_CELL":
+            raise ValueError("Only SRAM_6T_CELL is supported")
+        model = Path(getattr(circuit.global_config, "pdk_path_" + config["corner"]))
+        means = nominal_parameters(circuit.sram_6t_cell, model)
+        summary.update(model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
+                       nominal_parameters=means.tolist(), dimensions=len(means))
+        target = IndependentProcess(means, config["relative_std"], config["seed"])
+        bench = build_testbench(circuit, str(output), variation_mode="custom", mc_seed=None, real_cell_mode=0)
+        summary.update(driver_sizes=bench.driver_sizes.to_dict(), timing=bench.timing_config.to_dict(),
+                       interconnect=bench.interconnect.to_dict(), equivalent=bench.equivalent.to_dict())
+        recorder = RecordedReadTestbench(bench, output, config)
+        algorithm = MNIS(recorder, target, len(means), means, .01, initial_failures,
+                         initial_batch, estimation_batch, 13, .24, 1,
+                         seed=config["seed"], IS_bound_on=False)
+        algorithm.threshold = config["threshold_ns"] * 1e-9
+        os.chdir(output)
+        algorithm.start_estimate(config["budget"], strict_budget=True, skip_zero_target=True)
+        status = "stopped"
+    except MNISBudgetReached as exc:
+        status = "budget_stopped"
+        error = str(exc)
+    except (Exception, KeyboardInterrupt) as exc:
+        status = "error"
+        error = type(exc).__name__ + ": " + str(exc)
+    finally:
+        os.chdir(original_dir)
+    records = getattr(algorithm, "estimation_records", [])
+    for i, record in enumerate(records):
+        np.savez(output / f"estimation_{i:04d}.npz", **record)
+    stats = weight_summary(records)
+    # A partial estimate remains diagnostic only when any requested simulation failed.
+    summary.update(status=status, detail=error, diagnostics=stats,
+        algorithm_requested_samples=getattr(algorithm, "submitted_samples", 0),
+        phase_samples=getattr(algorithm, "phase_samples", {}),
+        zero_target_samples=getattr(algorithm, "zero_target_samples", 0),
+        simulator_submitted_samples=recorder.submitted if recorder else 0,
+        simulator_returned_samples=recorder.returned if recorder else 0,
+        original_estimate=getattr(algorithm, "last_estimate", None),
+        pfail_estimate=stats["log_domain_pfail"] if status != "error" else None,
+        log10_pfail=stats["log10_pfail"] if status != "error" else None,
+        ranking_eligible=False)
+    with (output / "estimation_draws.csv").open("w", newline="") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(["round", "draw", "target_supported", "round_status", "read_delay_s",
+                         "failure_indicator", "log_target_density", "log_proposal_density"])
+        for i, record in enumerate(records):
+            for j, supported in enumerate(record["support"]):
+                evaluated = record["status"] == "evaluated"
+                delay = record["delays"][j]
+                writer.writerow([i, j, bool(supported), record["status"],
+                    float(delay) if supported and np.isfinite(delay) else "",
+                    bool(record["indicator"][j]) if supported and evaluated else "",
+                    float(record["log_f"][j]), float(record["log_g"][j])])
+    (output / "run_summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False))
+    text = [
+        "# 原版提议分布 MNIS 接入诊断", "",
+        f"- 状态：{status}；说明：{error}",
+        f"- 代码：{revision}；未提交改动：{dirty}",
+        f"- 算法预算名额：{summary['algorithm_requested_samples']}/{config['budget']}",
+        f"- 分阶段请求：{summary['phase_samples']}",
+        f"- 实际送入仿真：{summary['simulator_submitted_samples']}；返回：{summary['simulator_returned_samples']}",
+        f"- 零目标密度样本：{summary['zero_target_samples']}，不仿真、不重抽，保留在估计分母",
+        f"- 估算抽样总数：{stats['estimation_draws_evaluated']}；其中属于目标范围：{stats['supported_estimation_draws']}",
+        f"- 数值状态：{stats['numeric_status']}",
+        f"- 对数核对得到的估计值：{summary['pfail_estimate']}；log10：{summary['log10_pfail']}", "",
+        "这是接入诊断，不能据此给算法排名。没有找到初始失效点时估计留空。",
+        "zero_observed_contribution表示本批估算没有非零贡献，不能证明实际失效率为零。",
+        "underflow表示普通数字表示不了这么小的估计，应看log10；这也不证明估计准确。",
+        "samples.csv只列实际仿真；estimation_draws.csv列全部估算抽样，范围外样本不伪造读延迟或通过标签。",
+        "预算按算法请求计费，包括复测和零密度样本；它是实际仿真次数的保守上限，不能称为等实际调用数比较。",
+        "原版公式输出保存在original_estimate；对数核对结果另存，未用新提议分布替换原算法。",
+    ]
+    (output / "report.md").write_text("\n".join(text) + "\n", encoding="utf-8")
+    print(json.dumps({key: summary[key] for key in ("status", "algorithm_requested_samples",
+          "simulator_submitted_samples", "simulator_returned_samples", "zero_target_samples",
+          "pfail_estimate", "log10_pfail", "diagnostics")}, indent=2))
+    print("report=" + str(output / "report.md"))
+    return 1 if status == "error" else 0
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--config", type=Path, required=True)
+    p.add_argument("--output-dir", type=Path, required=True)
+    p.add_argument("--initial-batch", type=int, default=2)
+    p.add_argument("--initial-failures", type=int, default=1)
+    p.add_argument("--estimation-batch", type=int, default=1)
+    a = p.parse_args()
+    try:
+        return run(read_config(a.config), a.output_dir, a.initial_batch, a.initial_failures, a.estimation_batch)
+    except (OSError, ValueError) as exc:
+        p.exit(2, str(exc) + "\n")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
