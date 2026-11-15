@@ -1,7 +1,6 @@
-"""Diagnostic entry for repository AIS/ACS; explicit proposal variance, no clipping."""
+"""Diagnostic entry for repository AIS/ACS/HSCS; explicit proposal variance, no clipping."""
 import argparse
 import csv
-import hashlib
 import json
 import math
 import os
@@ -9,9 +8,8 @@ from pathlib import Path
 import shutil
 
 import numpy as np
-from scipy.special import logsumexp
 from yield_estimation.evaluation.run import (
-    read_config, configure, nominal_parameters, IndependentProcess, build_testbench,
+    read_config, evaluation_circuit_options, validate_algorithm_dimensions, build_evaluation_case,
     RecordedReadTestbench, source_revision, PARAMETER_FORMAT,
 )
 from yield_estimation.model_lib.AIS import AIS
@@ -27,7 +25,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
     if algorithm_name not in ("ais", "acs", "hscs"):
         raise ValueError("Choose ais, acs or hscs")
     if algorithm_name == "hscs" and not allow_hscs_mixed_search:
-        raise ValueError("HSCS uses write [2,1] to guide read [1,1] estimation; explicitly allow mixed search")
+        raise ValueError("HSCS uses auxiliary writes to guide read estimation; explicitly allow mixed search")
     if not math.isfinite(proposal_variance) or proposal_variance <= 0:
         raise ValueError("proposal variance must be positive and finite")
     for count in (initial_batch, initial_failures, estimation_batch):
@@ -35,14 +33,17 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
             raise ValueError("MNIS batch sizes and initial failure count must be positive integers")
     if algorithm_name == "ais" and estimation_batch % initial_failures:
         raise ValueError("AIS estimation batch must be a multiple of initial failure count")
+    options = evaluation_circuit_options(config)
+    validate_algorithm_dimensions(options, algorithm_name)
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
+    rows, cols, _ = options["array"]
     settings = dict(initial_batch=initial_batch, initial_failures=initial_failures,
                     estimation_batch=estimation_batch, strict_budget=True,
                     skip_zero_target=False, legacy_clipping=False,
                     proposal_variance=proposal_variance, algorithm=algorithm_name,
-                    auxiliary_search=(dict(operation="write", target=[2,1], threshold_ns=config["threshold_ns"],
-                                           find_samples=1, ratio=0.1, final_operation="read", final_target=[1,1])
+                    auxiliary_search=(dict(operation="write", target=[rows - 1, cols - 1], threshold_ns=config["threshold_ns"],
+                                           find_samples=1, ratio=0.1, final_operation="read", final_target=options["target"])
                                       if algorithm_name == "hscs" else None))
     (output / "run_config.json").write_text(json.dumps(config, indent=2))
     (output / "algorithm_settings.json").write_text(json.dumps(settings, indent=2))
@@ -61,19 +62,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         summary["xyce"] = shutil.which("Xyce")
         if not summary["xyce"]:
             raise RuntimeError("Xyce not found; activate openyield")
-        circuit = configure(3, 2, False, config["corner"])
-        circuit.global_config.vdd = config["vdd"]
-        circuit.global_config.temperature = config["temperature_c"]
-        if circuit.global_config.sram_cell_type != "SRAM_6T_CELL":
-            raise ValueError("Only SRAM_6T_CELL is supported")
-        model = Path(getattr(circuit.global_config, "pdk_path_" + config["corner"]))
-        means = nominal_parameters(circuit.sram_6t_cell, model)
-        summary.update(model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
-                       nominal_parameters=means.tolist(), dimensions=len(means))
-        target = IndependentProcess(means, config["relative_std"], config["seed"])
-        bench = build_testbench(circuit, str(output), variation_mode="custom", mc_seed=None, real_cell_mode=0)
-        summary.update(driver_sizes=bench.driver_sizes.to_dict(), timing=bench.timing_config.to_dict(),
-                       interconnect=bench.interconnect.to_dict(), equivalent=bench.equivalent.to_dict())
+        means, target, bench = build_evaluation_case(config, options, output, summary)
         recorder_class = RecordedMixedSearchTestbench if algorithm_name == "hscs" else RecordedReadTestbench
         recorder = recorder_class(bench, output, config)
         if algorithm_name == "ais":
@@ -88,7 +77,8 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
             algorithm = HSCS(target, recorder, means, len(means), g_var_num=proposal_variance,
                 IS_sample_num=estimation_batch, initial_failed_data_num=initial_failures,
                 sample_num_each_sphere=initial_batch, find_MN_sam_num=1, seed=config["seed"],
-                IS_bound_on=False, num_rows=3, num_cols=2)
+                IS_bound_on=False, num_rows=rows, num_cols=cols)
+        algorithm.read_target = tuple(options["target"])
         algorithm.threshold = config["threshold_ns"] * 1e-9
         os.chdir(output)
         algorithm.start_estimate(config["budget"], strict_budget=True)
@@ -155,7 +145,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         "这是接入测试，不是算法排名。少量样本下即使进程成功，也可能没有可靠估计。"]
     if algorithm_name == "hscs":
         text += ["", f"辅助写测试：提交 {summary['auxiliary_write_submitted']}，返回 {summary['auxiliary_write_returned']}。",
-                 "保留原读—写—读流程：读 [1,1] 找点；写 [2,1] 辅助选位置；最终仍估计读 [1,1] 失效。",
+                 f"读 {options['target']} 找点；写 {[rows - 1, cols - 1]} 辅助选位置；最终估计读 {options['target']} 的失效概率。",
                  "写测试计入总预算，在 auxiliary_write_samples.csv 单列；不计入读失效条数或估算分母。",
                  "沿用原来的同一门限用于辅助写搜索；这不是独立的写良率测试，也未声称这种选点策略有效。",
                  "原算法的球面搜索几何未重新设计；参数范围或仿真证据不满足要求时如实停止。"]

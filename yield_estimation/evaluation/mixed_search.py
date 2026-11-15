@@ -7,6 +7,8 @@ from .run import RecordedReadTestbench, PARAMETER_FORMAT
 class RecordedMixedSearchTestbench(RecordedReadTestbench):
     def __init__(self, testbench, output, config):
         super().__init__(testbench, output, config)
+        rows, cols, _ = self.options["array"]
+        self.write_target = (rows - 1, cols - 1)
         self.write_submitted = self.write_returned = 0
         (output / "auxiliary_write_samples.csv").write_text(
             "sample,batch,xyce_run,write_delay_s,search_condition\n")
@@ -15,13 +17,13 @@ class RecordedMixedSearchTestbench(RecordedReadTestbench):
         if operation == "read":
             return super().run_mc_simulation(operation=operation, target_row=target_row,
                 target_col=target_col, mc_runs=mc_runs, vars=vars)
-        if operation != "write" or (target_row, target_col) != (2, 1):
-            raise ValueError("HSCS auxiliary search only supports write at [2,1]")
+        if operation != "write" or (target_row, target_col) != self.write_target:
+            raise ValueError(f"HSCS auxiliary search requires write at {self.write_target}")
         if self.submitted + mc_runs > self.budget:
             raise RuntimeError("HSCS total read+write budget exceeded")
         samples = np.asarray(vars)
-        if samples.shape != (mc_runs, 108) or not np.isfinite(samples).all() or (samples[:,1::3] <= 0).any():
-            raise ValueError("Auxiliary write parameters must be finite, 108 dimensional, with positive u0")
+        if samples.shape != (mc_runs, self.dimensions) or not np.isfinite(samples).all() or (samples[:,1::3] <= 0).any():
+            raise ValueError(f"Auxiliary write needs {self.dimensions} finite parameters per sample and positive u0")
         first = self.submitted
         batch = self.output / f"batch_{first:04d}"
         batch.mkdir()

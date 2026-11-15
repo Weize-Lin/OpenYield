@@ -1,7 +1,6 @@
-"""Diagnostic entry for original-proposal MNIS on the configured 3x2 read case."""
+"""Diagnostic entry for original-proposal MNIS on the configured 6T read case."""
 import argparse
 import csv
-import hashlib
 import json
 import math
 import os
@@ -11,7 +10,7 @@ import shutil
 import numpy as np
 from scipy.special import logsumexp
 from yield_estimation.evaluation.run import (
-    read_config, configure, nominal_parameters, IndependentProcess, build_testbench,
+    read_config, evaluation_circuit_options, validate_algorithm_dimensions, build_evaluation_case,
     RecordedReadTestbench, source_revision, PARAMETER_FORMAT,
 )
 from yield_estimation.model_lib.MNIS import MNIS, MNISBudgetReached
@@ -66,6 +65,8 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     for count in (initial_batch, initial_failures, estimation_batch):
         if type(count) is not int or count < 1:
             raise ValueError("MNIS batch sizes and initial failure count must be positive integers")
+    options = evaluation_circuit_options(config)
+    validate_algorithm_dimensions(options, "mnis")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     settings = dict(initial_batch=initial_batch, initial_failures=initial_failures,
@@ -88,23 +89,11 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         summary["xyce"] = shutil.which("Xyce")
         if not summary["xyce"]:
             raise RuntimeError("Xyce not found; activate openyield")
-        circuit = configure(3, 2, False, config["corner"])
-        circuit.global_config.vdd = config["vdd"]
-        circuit.global_config.temperature = config["temperature_c"]
-        if circuit.global_config.sram_cell_type != "SRAM_6T_CELL":
-            raise ValueError("Only SRAM_6T_CELL is supported")
-        model = Path(getattr(circuit.global_config, "pdk_path_" + config["corner"]))
-        means = nominal_parameters(circuit.sram_6t_cell, model)
-        summary.update(model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
-                       nominal_parameters=means.tolist(), dimensions=len(means))
-        target = IndependentProcess(means, config["relative_std"], config["seed"])
-        bench = build_testbench(circuit, str(output), variation_mode="custom", mc_seed=None, real_cell_mode=0)
-        summary.update(driver_sizes=bench.driver_sizes.to_dict(), timing=bench.timing_config.to_dict(),
-                       interconnect=bench.interconnect.to_dict(), equivalent=bench.equivalent.to_dict())
+        means, target, bench = build_evaluation_case(config, options, output, summary)
         recorder = RecordedReadTestbench(bench, output, config)
         algorithm = MNIS(recorder, target, len(means), means, .01, initial_failures,
                          initial_batch, estimation_batch, 13, .24, 1,
-                         seed=config["seed"], IS_bound_on=False)
+                         seed=config["seed"], IS_bound_on=False, target=options["target"])
         algorithm.threshold = config["threshold_ns"] * 1e-9
         os.chdir(output)
         algorithm.start_estimate(config["budget"], strict_budget=True, skip_zero_target=True)

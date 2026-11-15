@@ -8,6 +8,13 @@ CONDITIONS = ("case", "corner", "vdd", "temperature_c", "relative_std", "u0_posi
               "threshold_ns", "model_sha256", "driver_sizes", "timing", "interconnect", "equivalent")
 
 
+def condition_mismatches(left, right):
+    fields = [k for k in CONDITIONS if k not in left or k not in right or left[k] != right[k]]
+    if left.get("resolved_circuit") != right.get("resolved_circuit"):
+        fields.append("resolved_circuit")
+    return fields
+
+
 def compare(mc_dir, mnis_dir, output):
     mc_dir, mnis_dir, output = mc_dir.resolve(), mnis_dir.resolve(), output.resolve()
     for source in (mc_dir, mnis_dir):
@@ -19,7 +26,7 @@ def compare(mc_dir, mnis_dir, output):
         raise ValueError("Expected configured repository MC and original-proposal MNIS reports")
     if mc.get("status") != "complete" or mnis.get("status") not in ("budget_stopped", "stopped"):
         raise ValueError("Only completed diagnostic runs can be compared; inspect failed reports separately")
-    mismatches = [key for key in CONDITIONS if key not in mc or key not in mnis or mc[key] != mnis[key]]
+    mismatches = condition_mismatches(mc, mnis)
     mc_calls = mc["requested_samples"]
     mnis_calls = mnis["simulator_submitted_samples"]
     numerical = mnis["diagnostics"]["numeric_status"]

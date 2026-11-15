@@ -16,17 +16,24 @@ class MC():
         576: 'model_bound_576.txt',
         2304: 'model_bound_2304.txt'
     }
-    def __init__(self, f_norm, mc_testbench, means, feature_num, IS_bound_num, initial_num=10000, sample_num=10, FOM_use_num=10, seed=0, IS_bound_on=False):
+    def __init__(self, f_norm, mc_testbench, means, feature_num, IS_bound_num, initial_num=10000, sample_num=10, FOM_use_num=10, seed=0, IS_bound_on=False,
+                 *, target=(1, 1), use_legacy_bounds=True):
         self.x = None   
         self.means = means
         self.feature_num = feature_num
         self.mc_testbench = mc_testbench
+        self.target = tuple(target)
+        self.use_legacy_bounds = use_legacy_bounds
         self.f_norm = f_norm 
         self.initial_num, self.sample_num, self.FOM_use_num = initial_num, sample_num, FOM_use_num
         self.IS_bound_on = IS_bound_on
         self.IS_bound_num = IS_bound_num
         self.seed = seed
         seed_set(seed)
+        if not use_legacy_bounds:
+            if IS_bound_on:
+                raise ValueError("Clipping requires legacy bounds")
+            return
         if self.feature_num not in self._BOUND_FILE_MAP:
             raise ValueError(f"不支持的特征数量: {self.feature_num}，仅支持 {list(self._BOUND_FILE_MAP.keys())}")
         bound_file_path = Path(__file__).resolve().parents[1] / 'bound_lib' / self._BOUND_FILE_MAP[self.feature_num]
@@ -92,6 +99,8 @@ class MC():
      # Perform Monte Carlo simulation until convergence conditions are met
     def start_estimate(self, max_num=100000, *, fixed_budget=False):
         """Use the configured distribution for every draw in fixed-budget mode."""
+        if not fixed_budget and not self.use_legacy_bounds:
+            raise ValueError("MC without legacy bounds requires fixed_budget")
         if fixed_budget and (
             max_num < 1 or self.initial_num < 1 or self.sample_num < 1 or self.IS_bound_on
         ):
@@ -121,7 +130,7 @@ class MC():
         if IS_bound_on:
                 x = self._IS_bound(x, IS_bound_num)
         num_mc = x.shape[0]
-        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x)
+        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=self.target[0], target_col=self.target[1], mc_runs=num_mc, vars=x)
         new_y = y.reshape(num_mc,1)
         self.save_y_to_txt(new_y, delay_output)
         self.y = np.vstack([self.y, new_y])
@@ -140,7 +149,7 @@ class MC():
                 x = self._IS_bound(x, IS_bound_num)
             num_mc = x.shape[0]
             print(x.shape)
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=self.target[0], target_col=self.target[1], mc_runs=num_mc, vars=x)
             new_y = y.reshape(num_mc,1)
             self.save_y_to_txt(new_y, delay_output)
             self.y = np.vstack([self.y, new_y])

@@ -1,0 +1,23 @@
+{
+  "case": "sram_6t_read",
+  "corner": "TT",
+  "vdd": 1,
+  "temperature_c": 27,
+  "relative_std": 0.05,
+  "u0_positive": true,
+  "threshold_ns": 0.7,
+  "seed": 2,
+  "budget": 4,
+  "batch_size": 2,
+  "circuit": {
+    "array": [3, 2, false],
+    "target": [2, 0],
+    "cell_type": "SRAM_6T_CELL",
+    "cell_6t": null,
+    "operation": "read",
+    "variation_mode": "custom",
+    "real_cell_mode": 0,
+    "w_rc": true,
+    "interconnect_config": null
+  }
+}

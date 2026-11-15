@@ -13,7 +13,7 @@ from yield_estimation.evaluation.outcomes import (
     FUNCTIONAL_FAILURE, PASS, TIMING_FAILURE, RULE_VERSION,
     classify_read, threshold_seconds,
 )
-from yield_estimation.evaluation.run import CASE, read_config, source_revision
+from yield_estimation.evaluation.run import CASE, CONFIGURABLE_CASE, read_config, source_revision
 
 COLUMNS = ["sample", "batch", "xyce_run", "read_delay_s", "outcome"]
 
@@ -25,7 +25,7 @@ def load_source(source):
     config = read_config(source / "run_config.json")
     summary = json.loads(raw["run_summary.json"])
     if (summary.get("status") != "complete" or summary.get("error") is not None
-            or summary.get("algorithm") != "repository_MC" or summary.get("case") != CASE
+            or summary.get("algorithm") != "repository_MC" or summary.get("case") not in (CASE, CONFIGURABLE_CASE)
             or summary.get("assessment_kind", "live_mc") != "live_mc"):
         raise ValueError("Source must be a completed live repository_MC evaluation")
     if any(summary.get(key) != value for key, value in config.items()):

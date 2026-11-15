@@ -7,6 +7,8 @@ class AlgorithmBudgetReached(RuntimeError):
 
 
 class RecordedAlgorithm:
+    read_target = (1, 1)
+
     def _budget_setup(self, max_num, strict_budget):
         if strict_budget and (type(max_num) is not int or max_num < 1):
             raise ValueError("strict budget must be a positive integer")
@@ -27,7 +29,9 @@ class RecordedAlgorithm:
             raise AlgorithmBudgetReached(
                 f"Used {self.submitted_samples}/{self.budget}; next {self.phase} batch needs {n}")
 
-    def _simulate(self, x, operation="read", target_row=1, target_col=1):
+    def _simulate(self, x, operation="read", target_row=None, target_col=None):
+        if target_row is None and target_col is None:
+            target_row, target_col = self.read_target
         if not hasattr(self, "submitted_samples"):
             self._budget_setup(None, False)
         n = len(x)

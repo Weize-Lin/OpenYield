@@ -17,7 +17,7 @@ import numpy as np
 from scipy.stats import truncnorm, norm
 from scipy.special import log_ndtr
 
-from main_sram import build_testbench, configure
+from main_sram import build_testbench, circuit_defaults, configure_circuit, normalize_circuit_options
 from sram_compiler.per_device_mc.netlist import MC_PARAMS, parse_spice_models
 from sram_compiler.version import VERSION
 from yield_estimation.model_lib.MC import MC
@@ -25,6 +25,7 @@ from yield_estimation.evaluation.outcomes import classify_read, threshold_second
 
 ROOT = Path(__file__).resolve().parents[2]
 CASE = "sram_6t_3x2_read"
+CONFIGURABLE_CASE = "sram_6t_read"
 ROWS, COLS = 3, 2
 TARGET = (1, 1)
 PARAMETER_FORMAT = ".17g"
@@ -36,10 +37,10 @@ FIELDS = {
 
 def read_config(path):
     config = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(config, dict) or config.keys() != FIELDS:
-        raise ValueError(f"Configuration must contain exactly: {', '.join(sorted(FIELDS))}")
-    if config["case"] != CASE:
-        raise ValueError(f"Supported case: {CASE}")
+    if not isinstance(config, dict) or config.keys() - {"circuit"} != FIELDS:
+        raise ValueError(f"Configuration needs the optional circuit block and the following required fields: {', '.join(sorted(FIELDS))}")
+    if config["case"] not in (CASE, CONFIGURABLE_CASE):
+        raise ValueError(f"Supported cases: {CASE}, {CONFIGURABLE_CASE}")
     if config["corner"] not in ("TT", "FF", "SS", "FS", "SF"):
         raise ValueError("corner must be TT, FF, SS, FS or SF")
     if config["u0_positive"] is not True:
@@ -58,17 +59,75 @@ def read_config(path):
     for key in ("budget", "batch_size"):
         if type(config[key]) is not int or config[key] < 1:
             raise ValueError(f"{key} must be a positive integer")
+    if "circuit" in config or config["case"] == CONFIGURABLE_CASE:
+        config["circuit"] = evaluation_circuit_options(config)
     return config
 
 
-def nominal_parameters(cell, model_path):
+def evaluation_circuit_options(config):
+    supplied = config.get("circuit", {})
+    if not isinstance(supplied, dict):
+        raise ValueError("circuit must be a JSON object")
+    defaults = circuit_defaults()
+    default_target = list(TARGET) if config["case"] == CASE else None
+    defaults.update(array=[ROWS, COLS, False], target=default_target, cell_type="SRAM_6T_CELL",
+                    cell_6t=None, operation="read", variation_mode="custom",
+                    real_cell_mode=0, corner=config["corner"], vdd=config["vdd"],
+                    temperature_c=config["temperature_c"])
+    options = normalize_circuit_options(supplied, defaults)
+    for key in ("corner", "vdd", "temperature_c"):
+        if options[key] != config[key]:
+            raise ValueError(f"Top-level {key} disagrees with circuit.{key}")
+    if config["case"] == CASE and (options["array"] != [ROWS, COLS, False]
+                                   or options["target"] != list(TARGET)):
+        raise ValueError(f"Use case {CONFIGURABLE_CASE} to change the array or target")
+    for key, value in (("operation", "read"), ("cell_type", "SRAM_6T_CELL"),
+                       ("variation_mode", "custom"), ("real_cell_mode", 0)):
+        if options[key] != value:
+            raise ValueError(f"Current yield evaluation requires circuit.{key}={value!r}")
+    return options
+
+
+def read_case_dimensions(options):
+    rows, cols, _ = options["array"]
+    return rows * cols * 6 * len(MC_PARAMS)
+
+
+def validate_algorithm_dimensions(options, algorithm):
+    dimensions = read_case_dimensions(options)
+    # The four importance samplers initialize from the checked-in box bounds.
+    # MNIS also uses dimension-specific proposal variances for these sizes.
+    if algorithm != "mc" and dimensions not in (18, 108, 576):
+        raise ValueError(f"{algorithm.upper()} does not support {dimensions} parameters; "
+                         "available dimensions: 18, 108, 576")
+
+
+def build_evaluation_case(config, options, output, summary):
+    circuit = configure_circuit(options)
+    model = Path(getattr(circuit.global_config, "pdk_path_" + options["corner"]))
+    rows, cols, _ = options["array"]
+    means = nominal_parameters(circuit.sram_6t_cell, model, rows * cols)
+    process = IndependentProcess(means, config["relative_std"], config["seed"])
+    testbench = build_testbench(circuit, str(output), variation_mode=options["variation_mode"],
+                                mc_seed=None, real_cell_mode=options["real_cell_mode"],
+                                w_rc=options["w_rc"])
+    summary.update(resolved_circuit=options, rows=rows, cols=cols, target=options["target"],
+                   dimensions=means.size, model_path=str(model),
+                   model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
+                   nominal_parameters_per_cell=means[:6 * len(MC_PARAMS)].tolist(),
+                   driver_sizes=testbench.driver_sizes.to_dict(), timing=testbench.timing_config.to_dict(),
+                   interconnect=testbench.interconnect.to_dict(), equivalent=testbench.equivalent.to_dict())
+    return means, process, testbench
+
+
+def nominal_parameters(cell, model_path, cells=ROWS * COLS):
     cards = parse_spice_models(model_path)
     pd, pg = cell.nmos_model.value
     pu = cell.pmos_model.value
     # This is the row/column order of gen_process_params in the 6T testbench.
     one_cell = [cards[name]["parameters"][parameter]
                 for name in (pg, pg, pd, pu, pd, pu) for parameter in MC_PARAMS]
-    means = np.tile(np.asarray(one_cell, dtype=float), ROWS * COLS)
+    means = np.tile(np.asarray(one_cell, dtype=float), cells)
     if not np.isfinite(means).all() or (means[1::3] <= 0).any():
         raise ValueError("Model cards must have finite nominal parameters and positive u0")
     return means
@@ -120,6 +179,9 @@ class RecordedReadTestbench:
 
     def __init__(self, testbench, output, config):
         self.testbench = testbench
+        self.options = evaluation_circuit_options(config)
+        self.target = tuple(self.options["target"])
+        self.dimensions = read_case_dimensions(self.options)
         self.output = output
         self.budget = config["budget"]
         self.temperature = config["temperature_c"]
@@ -134,12 +196,12 @@ class RecordedReadTestbench:
             csv.writer(stream).writerows(rows)
 
     def run_mc_simulation(self, *, operation, target_row, target_col, mc_runs, vars):
-        if operation != "read" or (target_row, target_col) != TARGET:
-            raise ValueError("The evaluation supports reading cell [1, 1]")
+        if operation != "read" or (target_row, target_col) != self.target:
+            raise ValueError(f"The evaluation supports reading configured cell {self.target}")
         if self.submitted + mc_runs > self.budget:
             raise RuntimeError(f"Budget exceeded: {self.submitted} + {mc_runs} > {self.budget}")
         samples = np.asarray(vars)
-        if (samples.shape != (mc_runs, ROWS * COLS * 6 * len(MC_PARAMS))
+        if (samples.shape != (mc_runs, self.dimensions)
                 or not np.isfinite(samples).all() or (samples[:, 1::3] <= 0).any()):
             raise ValueError("Sample parameters must be finite with positive u0 and the expected shape")
 
@@ -189,7 +251,7 @@ def wilson_interval(failures, samples):
 def write_report(output, summary):
     text = [
         "# Monte Carlo SRAM read evaluation", "",
-        f"- Circuit: {ROWS}×{COLS} 6T SRAM, target cell {list(TARGET)}, OpenYield {VERSION}",
+        f"- Circuit: {summary['rows']}×{summary['cols']} 6T SRAM, target cell {summary['target']}, OpenYield {VERSION}",
         f"- Conditions: {summary['corner']}, {summary['vdd']} V, {summary['temperature_c']} °C",
         f"- Process: {summary['relative_std']:.2%} relative Gaussian scale, conditioned on positive u0",
         f"- Read delay limit: {summary['threshold_ns']:g} ns",
@@ -231,6 +293,7 @@ def source_revision():
 
 
 def run_evaluation(config, output):
+    options = evaluation_circuit_options(config)
     output.mkdir(parents=True, exist_ok=False)
     (output / "run_config.json").write_text(
         json.dumps(config, indent=2, allow_nan=False) + "\n", encoding="utf-8",
@@ -243,7 +306,7 @@ def run_evaluation(config, output):
         config, algorithm="repository_MC", compiler_version=VERSION,
         outcome_rule_version=RULE_VERSION,
         git_revision=revision, git_tracked_files_modified=modified,
-        rows=ROWS, cols=COLS, target=list(TARGET),
+        rows=options["array"][0], cols=options["array"][1], target=options["target"],
         process_param_format=PARAMETER_FORMAT, variation_mode="custom",
     )
     recorder = None
@@ -254,32 +317,12 @@ def run_evaluation(config, output):
         if xyce is None:
             raise RuntimeError("Activate the openyield environment with Xyce on PATH")
         summary["xyce"] = xyce
-        circuit = configure(ROWS, COLS, False, config["corner"])
-        global_config = circuit.global_config
-        if global_config.sram_cell_type != "SRAM_6T_CELL":
-            raise ValueError("The supported case requires SRAM_6T_CELL")
-        global_config.vdd = config["vdd"]
-        global_config.temperature = config["temperature_c"]
-        model_path = Path(getattr(global_config, f"pdk_path_{config['corner']}"))
-        means = nominal_parameters(circuit.sram_6t_cell, model_path)
-        process = IndependentProcess(means, config["relative_std"], config["seed"])
-        summary.update(
-            dimensions=means.size, model_path=str(model_path),
-            model_sha256=hashlib.sha256(model_path.read_bytes()).hexdigest(),
-            nominal_parameters_per_cell=means[:6 * len(MC_PARAMS)].tolist(),
-        )
-
-        testbench = build_testbench(circuit, str(output), variation_mode="custom",
-                                    mc_seed=None, real_cell_mode=0)
-        summary.update(
-            driver_sizes=testbench.driver_sizes.to_dict(), timing=testbench.timing_config.to_dict(),
-            interconnect=testbench.interconnect.to_dict(), equivalent=testbench.equivalent.to_dict(),
-        )
+        means, process, testbench = build_evaluation_case(config, options, output, summary)
         recorder = RecordedReadTestbench(testbench, output, config)
         algorithm = MC(
             f_norm=process, mc_testbench=recorder, means=means, feature_num=means.size,
             IS_bound_num=1, initial_num=config["batch_size"], sample_num=config["batch_size"],
-            seed=config["seed"],
+            seed=config["seed"], target=options["target"], use_legacy_bounds=False,
         )
         algorithm.threshold = threshold_seconds(config["threshold_ns"])
         os.chdir(output)

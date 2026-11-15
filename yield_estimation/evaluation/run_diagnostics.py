@@ -7,7 +7,9 @@ import shlex
 import subprocess
 import sys
 
-from yield_estimation.evaluation.run import ROOT, read_config, source_revision
+from yield_estimation.evaluation.run import (
+    ROOT, evaluation_circuit_options, read_config, source_revision, validate_algorithm_dimensions,
+)
 
 MODULES = {"mc": "yield_estimation.evaluation.run",
            "mnis": "yield_estimation.evaluation.mnis_run",
@@ -54,6 +56,10 @@ def execute(config_path, output, algorithms, run_xyce=False,
     if "ais" in algorithms and estimation_batch % initial_failures:
         raise ValueError("AIS estimation batch must be a multiple of initial failures")
     config = read_config(config_path)
+    options = evaluation_circuit_options(config)
+    for algorithm in algorithms:
+        validate_algorithm_dimensions(options, algorithm)
+    print("Circuit: " + json.dumps(options, sort_keys=True), flush=True)
     output = output.resolve()
     if output.exists():
         raise FileExistsError(f"Output exists; choose a new directory: {output}")

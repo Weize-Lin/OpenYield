@@ -4,7 +4,7 @@ import csv
 import hashlib
 import json
 from pathlib import Path
-from .compare_diagnostics import CONDITIONS
+from .compare_diagnostics import condition_mismatches
 
 
 def collect(runs, output):
@@ -36,7 +36,7 @@ def collect(runs, output):
     if sources:
         base = sources[0]['summary']
         for item in sources:
-            differing = [key for key in CONDITIONS if key not in base or key not in item['summary'] or base[key] != item['summary'][key]]
+            differing = condition_mismatches(base, item['summary'])
             if differing: differences.append(dict(path=item['path'], fields=differing))
     result = dict(kind='diagnostic_collection', ranking_eligible=False,
                   condition_mismatches=differences, rows=rows, sources=sources)
