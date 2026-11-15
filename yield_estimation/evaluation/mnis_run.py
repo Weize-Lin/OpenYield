@@ -10,7 +10,7 @@ import shutil
 import numpy as np
 from scipy.special import logsumexp
 from yield_estimation.evaluation.run import (
-    read_config, evaluation_circuit_options, validate_algorithm_dimensions, build_evaluation_case,
+    read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case,
     RecordedReadTestbench, source_revision, PARAMETER_FORMAT,
 )
 from yield_estimation.model_lib.MNIS import MNIS, MNISBudgetReached
@@ -66,7 +66,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         if type(count) is not int or count < 1:
             raise ValueError("MNIS batch sizes and initial failure count must be positive integers")
     options = evaluation_circuit_options(config)
-    validate_algorithm_dimensions(options, "mnis")
+    validate_algorithm_case(options, "mnis")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     settings = dict(initial_batch=initial_batch, initial_failures=initial_failures,

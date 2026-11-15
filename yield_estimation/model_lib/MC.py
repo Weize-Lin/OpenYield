@@ -17,7 +17,10 @@ class MC():
         2304: 'model_bound_2304.txt'
     }
     def __init__(self, f_norm, mc_testbench, means, feature_num, IS_bound_num, initial_num=10000, sample_num=10, FOM_use_num=10, seed=0, IS_bound_on=False,
-                 *, target=(1, 1), use_legacy_bounds=True):
+                 *, target=(1, 1), use_legacy_bounds=True, operation="read"):
+        if operation not in ("read", "write"):
+            raise ValueError("MC delay evaluation supports read or write")
+        self.operation = operation
         self.x = None   
         self.means = means
         self.feature_num = feature_num
@@ -53,7 +56,7 @@ class MC():
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
 
         write_data2csv(tgt_dir=os.path.join("./results/MC"),  
-                       tgt_name=f"MC_read_{self.feature_num}.csv",  
+                       tgt_name=f"MC_{self.operation}_{self.feature_num}.csv",
                        head_info=('Pfail', 'FOM', 'num', 'used_time'),  
                        data_info=data_info_list)  
 
@@ -110,7 +113,7 @@ class MC():
         initial_num, sample_num, FOM_use_num = self.initial_num, self.sample_num, self.FOM_use_num
         IS_bound_num, IS_bound_on = self.IS_bound_num, self.IS_bound_on
 
-        delay_output = Path('results/MC/output_read.txt')
+        delay_output = Path(f"results/MC/output_{self.operation}.txt")
         delay_output.parent.mkdir(parents=True, exist_ok=True)
         now_time = time.time()
         self.y, P_fail_list, FOM_list, data_num_list = np.empty([0,1]), np.empty([0]), np.empty([0]), np.empty([0])
@@ -130,7 +133,7 @@ class MC():
         if IS_bound_on:
                 x = self._IS_bound(x, IS_bound_num)
         num_mc = x.shape[0]
-        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=self.target[0], target_col=self.target[1], mc_runs=num_mc, vars=x)
+        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation=self.operation, target_row=self.target[0], target_col=self.target[1], mc_runs=num_mc, vars=x)
         new_y = y.reshape(num_mc,1)
         self.save_y_to_txt(new_y, delay_output)
         self.y = np.vstack([self.y, new_y])
@@ -149,7 +152,7 @@ class MC():
                 x = self._IS_bound(x, IS_bound_num)
             num_mc = x.shape[0]
             print(x.shape)
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=self.target[0], target_col=self.target[1], mc_runs=num_mc, vars=x)
+            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation=self.operation, target_row=self.target[0], target_col=self.target[1], mc_runs=num_mc, vars=x)
             new_y = y.reshape(num_mc,1)
             self.save_y_to_txt(new_y, delay_output)
             self.y = np.vstack([self.y, new_y])

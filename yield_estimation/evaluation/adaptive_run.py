@@ -9,7 +9,7 @@ import shutil
 
 import numpy as np
 from yield_estimation.evaluation.run import (
-    read_config, evaluation_circuit_options, validate_algorithm_dimensions, build_evaluation_case,
+    read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case,
     RecordedReadTestbench, source_revision, PARAMETER_FORMAT,
 )
 from yield_estimation.model_lib.AIS import AIS
@@ -34,7 +34,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
     if algorithm_name == "ais" and estimation_batch % initial_failures:
         raise ValueError("AIS estimation batch must be a multiple of initial failure count")
     options = evaluation_circuit_options(config)
-    validate_algorithm_dimensions(options, algorithm_name)
+    validate_algorithm_case(options, algorithm_name)
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     rows, cols, _ = options["array"]

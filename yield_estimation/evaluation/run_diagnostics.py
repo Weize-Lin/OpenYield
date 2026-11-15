@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 from yield_estimation.evaluation.run import (
-    ROOT, evaluation_circuit_options, read_config, source_revision, validate_algorithm_dimensions,
+    ROOT, evaluation_circuit_options, read_config, source_revision, validate_algorithm_case,
 )
 
 MODULES = {"mc": "yield_estimation.evaluation.run",
@@ -58,7 +58,7 @@ def execute(config_path, output, algorithms, run_xyce=False,
     config = read_config(config_path)
     options = evaluation_circuit_options(config)
     for algorithm in algorithms:
-        validate_algorithm_dimensions(options, algorithm)
+        validate_algorithm_case(options, algorithm)
     print("Circuit: " + json.dumps(options, sort_keys=True), flush=True)
     output = output.resolve()
     if output.exists():

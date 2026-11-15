@@ -1,4 +1,4 @@
-"""Evaluate direct Monte Carlo on the configured 3×2 SRAM read case."""
+"""Evaluate direct Monte Carlo for a configured 6T SRAM read or write."""
 from __future__ import annotations
 
 import argparse
@@ -21,11 +21,16 @@ from main_sram import build_testbench, circuit_defaults, configure_circuit, norm
 from sram_compiler.per_device_mc.netlist import MC_PARAMS, parse_spice_models
 from sram_compiler.version import VERSION
 from yield_estimation.model_lib.MC import MC
-from yield_estimation.evaluation.outcomes import classify_read, threshold_seconds, RULE_VERSION
+from yield_estimation.evaluation.outcomes import (
+    classify_read, classify_write, threshold_seconds, RULE_VERSION, WRITE_RULE_VERSION,
+    FUNCTIONAL_FAILURE, WRITE_FUNCTIONAL_FAILURE, TIMING_FAILURE, UNCLASSIFIED,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 CASE = "sram_6t_3x2_read"
 CONFIGURABLE_CASE = "sram_6t_read"
+WRITE_CASE = "sram_6t_write"
+CASE_OPERATIONS = {CASE: "read", CONFIGURABLE_CASE: "read", WRITE_CASE: "write"}
 ROWS, COLS = 3, 2
 TARGET = (1, 1)
 PARAMETER_FORMAT = ".17g"
@@ -39,8 +44,8 @@ def read_config(path):
     config = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(config, dict) or config.keys() - {"circuit"} != FIELDS:
         raise ValueError(f"Configuration needs the optional circuit block and the following required fields: {', '.join(sorted(FIELDS))}")
-    if config["case"] not in (CASE, CONFIGURABLE_CASE):
-        raise ValueError(f"Supported cases: {CASE}, {CONFIGURABLE_CASE}")
+    if not isinstance(config["case"], str) or config["case"] not in CASE_OPERATIONS:
+        raise ValueError(f"Supported cases: {', '.join(CASE_OPERATIONS)}")
     if config["corner"] not in ("TT", "FF", "SS", "FS", "SF"):
         raise ValueError("corner must be TT, FF, SS, FS or SF")
     if config["u0_positive"] is not True:
@@ -59,7 +64,7 @@ def read_config(path):
     for key in ("budget", "batch_size"):
         if type(config[key]) is not int or config[key] < 1:
             raise ValueError(f"{key} must be a positive integer")
-    if "circuit" in config or config["case"] == CONFIGURABLE_CASE:
+    if "circuit" in config or config["case"] != CASE:
         config["circuit"] = evaluation_circuit_options(config)
     return config
 
@@ -68,10 +73,11 @@ def evaluation_circuit_options(config):
     supplied = config.get("circuit", {})
     if not isinstance(supplied, dict):
         raise ValueError("circuit must be a JSON object")
+    operation = CASE_OPERATIONS[config["case"]]
     defaults = circuit_defaults()
     default_target = list(TARGET) if config["case"] == CASE else None
     defaults.update(array=[ROWS, COLS, False], target=default_target, cell_type="SRAM_6T_CELL",
-                    cell_6t=None, operation="read", variation_mode="custom",
+                    cell_6t=None, operation=operation, variation_mode="custom",
                     real_cell_mode=0, corner=config["corner"], vdd=config["vdd"],
                     temperature_c=config["temperature_c"])
     options = normalize_circuit_options(supplied, defaults)
@@ -81,20 +87,22 @@ def evaluation_circuit_options(config):
     if config["case"] == CASE and (options["array"] != [ROWS, COLS, False]
                                    or options["target"] != list(TARGET)):
         raise ValueError(f"Use case {CONFIGURABLE_CASE} to change the array or target")
-    for key, value in (("operation", "read"), ("cell_type", "SRAM_6T_CELL"),
+    for key, value in (("operation", operation), ("cell_type", "SRAM_6T_CELL"),
                        ("variation_mode", "custom"), ("real_cell_mode", 0)):
         if options[key] != value:
             raise ValueError(f"Current yield evaluation requires circuit.{key}={value!r}")
     return options
 
 
-def read_case_dimensions(options):
+def access_case_dimensions(options):
     rows, cols, _ = options["array"]
     return rows * cols * 6 * len(MC_PARAMS)
 
 
-def validate_algorithm_dimensions(options, algorithm):
-    dimensions = read_case_dimensions(options)
+def validate_algorithm_case(options, algorithm):
+    if options["operation"] == "write" and algorithm != "mc":
+        raise ValueError("Write evaluation currently supports MC only; select --algorithms mc")
+    dimensions = access_case_dimensions(options)
     # The four importance samplers initialize from the checked-in box bounds.
     # MNIS also uses dimension-specific proposal variances for these sizes.
     if algorithm != "mc" and dimensions not in (18, 108, 576):
@@ -174,14 +182,15 @@ class IndependentProcess:
         return result
 
 
-class RecordedReadTestbench:
+class RecordedAccessTestbench:
     """Keep each submitted batch, and return only outcomes with usable evidence."""
 
     def __init__(self, testbench, output, config):
         self.testbench = testbench
         self.options = evaluation_circuit_options(config)
+        self.operation = self.options["operation"]
         self.target = tuple(self.options["target"])
-        self.dimensions = read_case_dimensions(self.options)
+        self.dimensions = access_case_dimensions(self.options)
         self.output = output
         self.budget = config["budget"]
         self.temperature = config["temperature_c"]
@@ -196,8 +205,8 @@ class RecordedReadTestbench:
             csv.writer(stream).writerows(rows)
 
     def run_mc_simulation(self, *, operation, target_row, target_col, mc_runs, vars):
-        if operation != "read" or (target_row, target_col) != self.target:
-            raise ValueError(f"The evaluation supports reading configured cell {self.target}")
+        if operation != self.operation or (target_row, target_col) != self.target:
+            raise ValueError(f"The evaluation requires {self.operation} at configured cell {self.target}")
         if self.submitted + mc_runs > self.budget:
             raise RuntimeError(f"Budget exceeded: {self.submitted} + {mc_runs} > {self.budget}")
         samples = np.asarray(vars)
@@ -216,27 +225,39 @@ class RecordedReadTestbench:
             result = self.testbench.run_mc_simulation(
                 operation=operation, target_row=target_row, target_col=target_col,
                 mc_runs=mc_runs, temperature=self.temperature, vars=samples,
-                process_param_format=PARAMETER_FORMAT, retain_read_failures=True,
+                process_param_format=PARAMETER_FORMAT,
+                **{f"retain_{operation}_failures": True},
             )
             delays = np.asarray(result[0], dtype=float).ravel()
             if len(delays) != mc_runs or np.isinf(delays).any() or (delays < 0).any():
-                raise RuntimeError("Unexpected read delay values or sample count")
+                raise RuntimeError(f"Unexpected {operation} delay values or sample count")
         except (Exception, KeyboardInterrupt):
-            self.write_rows((first + i + 1, batch.name, i, "", "unclassified")
+            self.write_rows((first + i + 1, batch.name, i, "", UNCLASSIFIED)
                             for i in range(mc_runs))
             raise
 
         rows = []
+        classify = classify_read if operation == "read" else classify_write
+        failure_outcome = FUNCTIONAL_FAILURE if operation == "read" else WRITE_FUNCTIONAL_FAILURE
         for index, delay in enumerate(delays):
             # The retained-failure simulator returns NaN only after electrical checks.
-            outcome = classify_read(delay, self.threshold_s, functional_failure=np.isnan(delay))
-            self.functional_failures += outcome == "read_functional_failure"
-            self.timing_failures += outcome == "timing_failure"
+            outcome = classify(delay, self.threshold_s, functional_failure=np.isnan(delay))
+            self.functional_failures += outcome == failure_outcome
+            self.timing_failures += outcome == TIMING_FAILURE
             rows.append((first + index + 1, batch.name, index,
                          "" if np.isnan(delay) else float(delay), outcome))
         self.returned += len(delays)
         self.write_rows(rows)
         return result
+
+
+class RecordedReadTestbench(RecordedAccessTestbench):
+    """Read recorder used by the adaptive estimators and HSCS mixed search."""
+
+    def __init__(self, testbench, output, config):
+        super().__init__(testbench, output, config)
+        if self.operation != "read":
+            raise ValueError("This recorder requires read evaluation")
 
 
 def wilson_interval(failures, samples):
@@ -249,17 +270,19 @@ def wilson_interval(failures, samples):
 
 
 def write_report(output, summary):
+    operation = summary.get("operation", "read")
+    functional = summary[f"{operation}_functional_failures"]
     text = [
-        "# Monte Carlo SRAM read evaluation", "",
+        f"# Monte Carlo SRAM {operation} evaluation", "",
         f"- Circuit: {summary['rows']}×{summary['cols']} 6T SRAM, target cell {summary['target']}, OpenYield {VERSION}",
         f"- Conditions: {summary['corner']}, {summary['vdd']} V, {summary['temperature_c']} °C",
         f"- Process: {summary['relative_std']:.2%} relative Gaussian scale, conditioned on positive u0",
-        f"- Read delay limit: {summary['threshold_ns']:g} ns",
+        f"- {operation.capitalize()} delay limit: {summary['threshold_ns']:g} ns",
         f"- Seed: {summary['seed']}",
         f"- Revision: {summary['git_revision'] or 'unavailable'}",
         f"- Requested: {summary['requested_samples']} / {summary['budget']}",
         f"- Classified: {summary['returned_rows']}",
-        f"- Read functional failures: {summary['read_functional_failures']}",
+        f"- {operation.capitalize()} functional failures: {functional}",
         f"- Timing failures: {summary['timing_failures']}",
         f"- Unclassified: {summary['unclassified_samples']}", "",
     ]
@@ -271,7 +294,7 @@ def write_report(output, summary):
             f"Estimated failure probability: **{summary['pfail_estimate']:.4%}** "
             f"({summary['failure_count']}/{summary['returned_rows']}).",
             f"95% Wilson interval: {low:.4%}–{high:.4%}.", "",
-            "For this case the result applies to the selected cell and read operation.",
+            f"For this case the result applies to the selected cell and {operation} operation.",
         ])
     (output / "report.md").write_text("\n".join(text) + "\n", encoding="utf-8")
 
@@ -294,17 +317,19 @@ def source_revision():
 
 def run_evaluation(config, output):
     options = evaluation_circuit_options(config)
+    operation = options["operation"]
     output.mkdir(parents=True, exist_ok=False)
     (output / "run_config.json").write_text(
         json.dumps(config, indent=2, allow_nan=False) + "\n", encoding="utf-8",
     )
     (output / "samples.csv").write_text(
-        "sample,batch,xyce_run,read_delay_s,outcome\n", encoding="utf-8",
+        f"sample,batch,xyce_run,{operation}_delay_s,outcome\n", encoding="utf-8",
     )
     revision, modified = source_revision()
     summary = dict(
         config, algorithm="repository_MC", compiler_version=VERSION,
-        outcome_rule_version=RULE_VERSION,
+        outcome_rule_version=RULE_VERSION if operation == "read" else WRITE_RULE_VERSION,
+        operation=operation, delay_metric="TREAD_TOTAL" if operation == "read" else "TWRITE_TOTAL",
         git_revision=revision, git_tracked_files_modified=modified,
         rows=options["array"][0], cols=options["array"][1], target=options["target"],
         process_param_format=PARAMETER_FORMAT, variation_mode="custom",
@@ -318,11 +343,11 @@ def run_evaluation(config, output):
             raise RuntimeError("Activate the openyield environment with Xyce on PATH")
         summary["xyce"] = xyce
         means, process, testbench = build_evaluation_case(config, options, output, summary)
-        recorder = RecordedReadTestbench(testbench, output, config)
+        recorder = RecordedAccessTestbench(testbench, output, config)
         algorithm = MC(
             f_norm=process, mc_testbench=recorder, means=means, feature_num=means.size,
             IS_bound_num=1, initial_num=config["batch_size"], sample_num=config["batch_size"],
-            seed=config["seed"], target=options["target"], use_legacy_bounds=False,
+            seed=config["seed"], target=options["target"], use_legacy_bounds=False, operation=operation,
         )
         algorithm.threshold = threshold_seconds(config["threshold_ns"])
         os.chdir(output)
@@ -349,10 +374,11 @@ def run_evaluation(config, output):
         status="complete" if complete else "incomplete", error=error,
         requested_samples=submitted, returned_rows=returned,
         unclassified_samples=submitted - returned, passed_samples=returned - failures,
-        read_functional_failures=functional, timing_failures=timing, failure_count=failures,
+        timing_failures=timing, failure_count=failures,
         pfail_estimate=failures / returned if complete else None,
         pfail_interval=wilson_interval(failures, returned) if complete else None,
     )
+    summary[f"{operation}_functional_failures"] = functional
     (output / "run_summary.json").write_text(
         json.dumps(summary, indent=2, allow_nan=False) + "\n", encoding="utf-8",
     )

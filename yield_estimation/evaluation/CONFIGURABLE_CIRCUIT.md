@@ -10,7 +10,7 @@
 | `target` | 从 0 开始的行列坐标。新用例省略或写 `null` 时选最后一个单元 |
 | `cell_type` | 当前测评支持 `SRAM_6T_CELL` |
 | `cell_6t` | 四个以米计的正尺寸和三个模型名，顺序与 main_sram.py 一致。写 `null` 时沿用单元 YAML |
-| `operation` | 当前测评支持 `read` |
+| `operation` | 支持 `read`。直接 MC 也支持 `write` |
 | `variation_mode` | 测评用 `custom`，算法逐批提供抽样参数 |
 | `real_cell_mode` | 当前测评用 `0`，保留全部阵列晶体管 |
 | `w_rc` | 布线端点的局部串联 RC 开关 |
@@ -45,7 +45,7 @@ python main_sram.py --circuit-config outputs/configurable_read/experiment.json -
 逐条读结果在各算法的 `samples.csv`，HSCS 另有 `auxiliary_write_samples.csv`。
 完整工况和阶段计数在 `run_summary.json`，多算法的并排统计在 `collection/summary.csv`。
 排行榜后续基于独立 MC 参考值、多随机种子、明确的误差指标与预算口径制作。
-写、读写、SNM、10T 和等效阵列还需各自的测评适配与验证。
+读写组合、SNM、10T 和等效阵列还需各自的测评适配与验证。
 
 已完成的小样本验证：
 
@@ -54,3 +54,23 @@ python main_sram.py --circuit-config outputs/configurable_read/experiment.json -
   HSCS 用 4 条预算跑完 3 条读与 1 条辅助写，尚未进入最终估算。
 - 2×2 读 [1,0]。直接 MC 的 2 条真实仿真均返回，每条保存 72 个器件参数。
   同一配置选择 MNIS 时，预览阶段已经报出缺少对应的抽样维度。
+
+
+## 直接 MC 写测评
+
+复制 `write_6t_configurable.json`，用 `case: sram_6t_write` 和 `circuit.operation: write`。
+`threshold_ns` 是该次写测评的延迟门限。示例中的 0.10 ns 用于流程诊断，正式实验需要按研究目的设定。
+
+```bash
+python -m yield_estimation.evaluation.run_diagnostics \
+  --config yield_estimation/evaluation/cases/write_6t_configurable.json \
+  --algorithms mc --output-dir outputs/example_write_mc --run-xyce
+```
+
+逐样本账本是 `mc/samples.csv`，其 `write_delay_s` 列以秒记录 `TWRITE_TOTAL`。
+写操作达到现有电压检查要求且延迟不超过门限，记为通过。电压证据完整但有一项不合格时，
+记为 `write_functional_failure`。写入正常但超时，记为 `timing_failure`。
+仿真或必要测量无法完成时，受影响批次记为 `unclassified`，整轮失效率及区间留空。
+写失效各类计数和概率保存在 `mc/run_summary.json` 与 `mc/report.md`。
+
+当前写模式只开放 MC。读模式的 HSCS 辅助写仍用来帮助搜索读失效，计入预算并单列。
