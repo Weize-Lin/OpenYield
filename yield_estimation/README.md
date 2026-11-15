@@ -100,3 +100,7 @@ MC run**. It adds zero simulated samples and reports no confirmatory confidence
 interval. Set the final comparison limit before collecting independent evaluation
 samples. Changing voltage, temperature, process distribution or circuit structure
 requires a new simulation; this command changes only the delay limit.
+
+## Original-proposal MNIS diagnostic entry
+
+See [the Chinese usage and acceptance record](evaluation/MNIS_PORTING.md) for the MNIS diagnostic command, budget accounting, zero-target draws, and underflow warnings. The comparison command reads existing MC/MNIS reports; it does not produce a validated ranking.
