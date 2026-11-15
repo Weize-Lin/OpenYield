@@ -1,20 +1,16 @@
 import numpy as np
-import sys
 import time
 import os
-parent_dir_of_code1 = '/home/lixy/sram_yield_estimation/'
-sys.path.append(parent_dir_of_code1) 
-from tool.util import write_data2csv, seed_set
-from tool.delete import delete_folder_content
-from tool.Distribution.normal_v1 import norm_dist
-parent_dir_of_code = '/home/lixy/Code'
+from pathlib import Path
+from yield_estimation.tool.util import write_data2csv, seed_set
+from yield_estimation.tool.Distribution.normal_v1 import norm_dist
 class MNIS():
     threshold = 3.745662e-09
     _BOUND_FILE_MAP = {
-        18: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_18_bound.txt',
-        108: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_108_bound.txt',  
-        576: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_576.txt',
-        2304: '/home/lixy/OpenYield-main/yield_estimation/bound_lib/model_bound_2304.txt'
+        18: 'model_18_bound.txt',
+        108: 'model_108_bound.txt',
+        576: 'model_bound_576.txt',
+        2304: 'model_bound_2304.txt'
     }
     def __init__(self, mc_testbench, f_norm, feature_num, means, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, g_cal_val, IS_bound_num, seed=0, IS_bound_on=False):
         self.mc_testbench = mc_testbench
@@ -26,10 +22,10 @@ class MNIS():
         seed_set(seed)
         if self.feature_num not in self._BOUND_FILE_MAP:
             raise ValueError(f"不支持的特征数量: {self.feature_num}，仅支持 {list(self._BOUND_FILE_MAP.keys())}")
-        bound_file_path = self._BOUND_FILE_MAP[self.feature_num]
+        bound_file_path = Path(__file__).resolve().parents[1] / 'bound_lib' / self._BOUND_FILE_MAP[self.feature_num]
         bounds = np.loadtxt(bound_file_path, dtype=np.float64)
-        self.up_bounds = bounds[0, :]  
-        self.low_bounds = bounds[1, :] 
+        self.up_bounds = bounds[0, :]
+        self.low_bounds = bounds[1, :]
         self.bound = np.vstack([self.low_bounds, self.up_bounds])
     def save_y_to_txt(self, y, file_path):
         if len(y.shape) != 2 or y.shape[1] != 1:
@@ -72,11 +68,11 @@ class MNIS():
     def _save_result(self, P_fail, FOM, num, used_time, seed):
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
 
-        write_data2csv(tgt_dir=os.path.join("./results/MNIS"), 
-                       tgt_name=f"MNIS_read_{self.feature_num}.csv",  
-                       head_info=('Pfail', 'FOM', 'num', 'used_time'),  
-                       data_info=data_info_list)  
-        
+        write_data2csv(tgt_dir=os.path.join("./results/MNIS"),
+                       tgt_name=f"MNIS_read_{self.feature_num}.csv",
+                       head_info=('Pfail', 'FOM', 'num', 'used_time'),
+                       data_info=data_info_list)
+
     def _initial_sampling(self, initial_fail_num, sample_num_each_sphere):
         captured_fail_data_num = 0
         iter_count = 0
@@ -90,8 +86,6 @@ class MNIS():
             #print(num_mc)
             y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
             new_y = y.reshape(num_mc,1)
-            folder_path = '/home/lixy/sim0'
-            delete_folder_content(folder_path)
             # print(new_y)
             y_labels = self.indicator(new_y).reshape([-1])
 
@@ -119,7 +113,7 @@ class MNIS():
         x[x<low_bound_full] = low_bound_full[x<low_bound_full]
         x[x>high_bound_full] = high_bound_full[x>high_bound_full]
         return x
-    
+
     def start_estimate(self, max_num=None):
         """
             call this function to start the yield estimation process,
@@ -142,9 +136,7 @@ class MNIS():
         num_mc = self.x_fail.shape[0]
         y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_fail)
         self.y_fail = y.reshape(num_mc,1)
-        folder_path = '/home/lixy/sim0'
-        delete_folder_content(folder_path)
-        #print(self.y_fail) 
+        #print(self.y_fail)
         centered_x_fail = self.x_fail - means
         distances = np.sqrt((centered_x_fail * centered_x_fail).sum(-1))
         min_index = distances.argmin()
@@ -180,9 +172,7 @@ class MNIS():
             num_mc = x_IS.shape[0]
             #print(num_mc)
             y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
-            y_IS = y.reshape(num_mc,1) 
-            folder_path = '/home/lixy/sim0'
-            delete_folder_content(folder_path)
+            y_IS = y.reshape(num_mc,1)
             #print(y_IS)
             # get log f(x), log g(x) and I(x)
             log_f_IS_val, log_g_IS_val, I_IS_val = self._calculate_val(x_IS, y_IS, f_norm, g_cal_norm)
