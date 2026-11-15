@@ -16,14 +16,18 @@ from yield_estimation.evaluation.run import (
 )
 from yield_estimation.model_lib.AIS import AIS
 from yield_estimation.model_lib.ACS import ACS
+from yield_estimation.model_lib.HSCS import HSCS
+from yield_estimation.evaluation.mixed_search import RecordedMixedSearchTestbench
 from yield_estimation.model_lib._recorded_algorithm import AlgorithmBudgetReached
 from yield_estimation.evaluation.mnis_run import weight_summary, sampling_diagnostics
 
 
 def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
-        algorithm_name="ais", proposal_variance=1.0):
-    if algorithm_name not in ("ais", "acs"):
-        raise ValueError("Choose ais or acs")
+        algorithm_name="ais", proposal_variance=1.0, allow_hscs_mixed_search=False):
+    if algorithm_name not in ("ais", "acs", "hscs"):
+        raise ValueError("Choose ais, acs or hscs")
+    if algorithm_name == "hscs" and not allow_hscs_mixed_search:
+        raise ValueError("HSCS uses write [2,1] to guide read [1,1] estimation; explicitly allow mixed search")
     if not math.isfinite(proposal_variance) or proposal_variance <= 0:
         raise ValueError("proposal variance must be positive and finite")
     for count in (initial_batch, initial_failures, estimation_batch):
@@ -36,7 +40,10 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
     settings = dict(initial_batch=initial_batch, initial_failures=initial_failures,
                     estimation_batch=estimation_batch, strict_budget=True,
                     skip_zero_target=False, legacy_clipping=False,
-                    proposal_variance=proposal_variance, algorithm=algorithm_name)
+                    proposal_variance=proposal_variance, algorithm=algorithm_name,
+                    auxiliary_search=(dict(operation="write", target=[2,1], threshold_ns=config["threshold_ns"],
+                                           find_samples=1, ratio=0.1, final_operation="read", final_target=[1,1])
+                                      if algorithm_name == "hscs" else None))
     (output / "run_config.json").write_text(json.dumps(config, indent=2))
     (output / "algorithm_settings.json").write_text(json.dumps(settings, indent=2))
     (output / "samples.csv").write_text("sample,batch,xyce_run,read_delay_s,outcome\n")
@@ -67,15 +74,21 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         bench = build_testbench(circuit, str(output), variation_mode="custom", mc_seed=None, real_cell_mode=0)
         summary.update(driver_sizes=bench.driver_sizes.to_dict(), timing=bench.timing_config.to_dict(),
                        interconnect=bench.interconnect.to_dict(), equivalent=bench.equivalent.to_dict())
-        recorder = RecordedReadTestbench(bench, output, config)
+        recorder_class = RecordedMixedSearchTestbench if algorithm_name == "hscs" else RecordedReadTestbench
+        recorder = recorder_class(bench, output, config)
         if algorithm_name == "ais":
             algorithm = AIS(target, recorder, 1, False, len(means),
                             g_cal_num=proposal_variance, initial_failed_data_num=initial_failures,
                             num_generate_each_norm=estimation_batch // initial_failures,
                             sample_num_each_sphere=initial_batch, seed=config["seed"])
-        else:
+        elif algorithm_name == "acs":
             algorithm = ACS(recorder, len(means), 1, False, target, proposal_variance,
                             initial_failures, initial_batch, estimation_batch, 10, config["seed"])
+        else:
+            algorithm = HSCS(target, recorder, means, len(means), g_var_num=proposal_variance,
+                IS_sample_num=estimation_batch, initial_failed_data_num=initial_failures,
+                sample_num_each_sphere=initial_batch, find_MN_sam_num=1, seed=config["seed"],
+                IS_bound_on=False, num_rows=3, num_cols=2)
         algorithm.threshold = config["threshold_ns"] * 1e-9
         os.chdir(output)
         algorithm.start_estimate(config["budget"], strict_budget=True)
@@ -102,6 +115,8 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         zero_target_samples=getattr(algorithm, "zero_target_samples", 0),
         simulator_submitted_samples=recorder.submitted if recorder else 0,
         simulator_returned_samples=recorder.returned if recorder else 0,
+        auxiliary_write_submitted=getattr(recorder, "write_submitted", 0),
+        auxiliary_write_returned=getattr(recorder, "write_returned", 0),
         original_estimate=getattr(algorithm, "last_estimate", None),
         pfail_estimate=stats["log_domain_pfail"] if status != "error" else None,
         log10_pfail=stats["log10_pfail"] if status != "error" else None,
@@ -138,6 +153,12 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         "request_*.npz 保留每次请求，estimation_*.npz 和 estimation_draws.csv 保留估算密度与标签。",
         "samples.csv 记录实际仿真。原公式结果在 original_estimate，对数核对值另列。",
         "这是接入测试，不是算法排名。少量样本下即使进程成功，也可能没有可靠估计。"]
+    if algorithm_name == "hscs":
+        text += ["", f"辅助写测试：提交 {summary['auxiliary_write_submitted']}，返回 {summary['auxiliary_write_returned']}。",
+                 "保留原读—写—读流程：读 [1,1] 找点；写 [2,1] 辅助选位置；最终仍估计读 [1,1] 失效。",
+                 "写测试计入总预算，在 auxiliary_write_samples.csv 单列；不计入读失效条数或估算分母。",
+                 "沿用原来的同一门限用于辅助写搜索；这不是独立的写良率测试，也未声称这种选点策略有效。",
+                 "原算法的球面搜索几何未重新设计；参数范围或仿真证据不满足要求时如实停止。"]
     (output / "report.md").write_text("\n".join(text) + "\n", encoding="utf-8")
     print(json.dumps({key: summary[key] for key in ("status", "algorithm_requested_samples",
           "simulator_submitted_samples", "simulator_returned_samples", "zero_target_samples",
@@ -153,12 +174,13 @@ def main():
     p.add_argument("--initial-batch", type=int, default=2)
     p.add_argument("--initial-failures", type=int, default=1)
     p.add_argument("--estimation-batch", type=int, default=1)
-    p.add_argument("--algorithm", choices=("ais", "acs"), required=True)
+    p.add_argument("--algorithm", choices=("ais", "acs", "hscs"), required=True)
     p.add_argument("--proposal-variance", type=float, default=1.0)
+    p.add_argument("--allow-hscs-mixed-search", action="store_true")
     a = p.parse_args()
     try:
         return run(read_config(a.config), a.output_dir, a.initial_batch, a.initial_failures, a.estimation_batch,
-                   a.algorithm, a.proposal_variance)
+                   a.algorithm, a.proposal_variance, a.allow_hscs_mixed_search)
     except (OSError, ValueError) as exc:
         p.exit(2, str(exc) + "\n")
 

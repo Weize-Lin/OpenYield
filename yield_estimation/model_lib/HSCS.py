@@ -6,7 +6,9 @@ import os
 import time
 from yield_estimation.tool.util import write_data2csv, seed_set
 from yield_estimation.tool.Distribution.gmm_v2 import mixture_gaussian
-class HSCS(nn.Module):
+from ._recorded_algorithm import RecordedAlgorithm
+
+class HSCS(RecordedAlgorithm, nn.Module):
     threshold = 3.745662e-09
     _BOUND_FILE_MAP = {
         18: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_18_bound.txt',
@@ -17,8 +19,9 @@ class HSCS(nn.Module):
     def __init__(self, f_norm, mc_testbench,means, feature_num, g_var_num=1, bound_num=1, IS_sample_num=100,
                        initial_failed_data_num=50, sample_num_each_sphere=1000,
                        max_gen_times=10, ratio=0.1, FOM_num=10, find_MN_sam_num=100, seed=0,
-                       IS_bound_num=1, IS_bound_on=True, g_cal_var=1):
+                       IS_bound_num=1, IS_bound_on=True, g_cal_var=1, *, num_rows=None, num_cols=None):
         super(HSCS, self).__init__()
+        self.num_rows, self.num_cols = num_rows, num_cols
         self.feature_num = feature_num
         self.means = means
         self.mc_testbench = mc_testbench
@@ -111,8 +114,7 @@ class HSCS(nn.Module):
             radius = ((iter_count+1)*radius_interval) - (((iter_count+1)*radius_interval)//max_radius)*max_radius
             new_x = np.random.uniform(low=bound_num * self.low_bounds, high=bound_num * self.up_bounds, size=[sample_num_each_sphere,feat_num])
             num_mc = new_x.shape[0]
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
-            new_y = y.reshape(num_mc,1)
+            new_y = self._simulate(new_x)
             y_labels = self.indicator_func(new_y).reshape([-1])
 
             if y_labels.any() == True:
@@ -175,7 +177,11 @@ class HSCS(nn.Module):
         now_centroids = self.normr(now_centroids, verticalize=True)
         if_centroids_stable = False
 
+        cluster_steps = 0
         while(if_centroids_stable == False):
+            cluster_steps += 1
+            if getattr(self, "strict_budget", False) and cluster_steps > 10000:
+                raise RuntimeError("HSCS clustering did not stabilize within 10000 iterations")
             last_centroids = now_centroids
             # classify samples
             argmax_matrix = np.dot(x_samples, now_centroids.T) 
@@ -210,6 +216,8 @@ class HSCS(nn.Module):
         """
             return the min_norm point of each cluster
         """
+        if not all(type(n) is int and n > 0 for n in (self.num_rows, self.num_cols)):
+            raise ValueError("HSCS mixed search needs explicit positive num_rows and num_cols")
         spend_num = 0
         dim = self.feature_num
         min_norm_points = []
@@ -218,6 +226,8 @@ class HSCS(nn.Module):
         for j in range(cluster_num): #  k cluster
 
             R_max = self.get_radius(x_samples).min()
+            if not np.isfinite(R_max) or R_max <= 0:
+                raise ValueError("HSCS search radius must be positive and finite")
             R_min = 0
             R_thre = (R_max - R_min)*0.05 # threshold
             direction = self.normr(centroids[j, :])
@@ -228,8 +238,8 @@ class HSCS(nn.Module):
                 R = (R_max + R_min) / 2
                 samples = self.sample_on_sphere(num=find_MN_sam_num, dim=dim, radius=R,means=means,direction=direction,IS_bound_num=1,IS_bound_on =True)
                 num_mc = samples.shape[0]
-                y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='write', target_row=self.num_rows-1, target_col=self.num_cols-1, mc_runs=num_mc, vars=samples)
-                samples_y = y.reshape(num_mc,1)  
+                samples_y = self._simulate(samples, operation="write",
+                    target_row=self.num_rows-1, target_col=self.num_cols-1)
 
                 if self.indicator_func(samples_y).any():
                     R_max = R
@@ -261,9 +271,9 @@ class HSCS(nn.Module):
             the labels is unused due to the fact that in the paper the ratio induced by the K-means can be divided out...
         """
     
-        mean = np.array([0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, 0.4106, 0.045, -0.13, -0.3842, 0.02, -0.126, 0.4106, 0.045, -0.13,
-                      -0.3842, 0.02, -0.126])
-        means = np.tile(mean, 16*2)
+        means = np.asarray(self.means, dtype=float).reshape(-1)
+        if means.shape != (self.feature_num,) or minnorm_point.shape[1] != self.feature_num:
+            raise ValueError("HSCS mixture centers must match configured feature_num")
         mean1 = np.vstack([means, minnorm_point])
         pi = np.hstack([ratios, (1-ratios) * betas ])
         mix_model = mixture_gaussian(pi=pi, mu=mean1, var_num=g_var_num)
@@ -272,7 +282,7 @@ class HSCS(nn.Module):
     def save_result(self, P_fail, FOM, num, used_time, seed):
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
         write_data2csv(tgt_dir=os.path.join("./results/HSCS"),  
-                       tgt_name=f"HSCS_write_{self.feature_num}.csv", 
+                       tgt_name=f"HSCS_read_{self.feature_num}.csv",
                        head_info=('Pfail', 'FOM', 'num', 'used_time'),  
                        data_info=data_info_list)  
 
@@ -316,7 +326,7 @@ class HSCS(nn.Module):
         return log_f_val, log_g_val, I_val
 
    
-    def start_estimate(self, max_num=1000):
+    def start_estimate(self, max_num=1000, *, strict_budget=False):
         """
             call this function to start the yield estimation process,
             and the numerical results will be saved in "./results/HSCS_case*.csv" automatically.
@@ -333,6 +343,7 @@ class HSCS(nn.Module):
             :param ratio: how large the ratio of f(x) mixing in g(x) is
             :param FOM_num: the used number of latest fail rates to calculate FOM
         """
+        self._budget_setup(max_num, strict_budget)
         f_norm, g_var_num, bound_num, IS_sample_num, initial_failed_data_num, \
         sample_num_each_sphere, ratio, FOM_num, find_MN_sam_num = self.f_norm, self.g_var_num,\
         self.bound_num, self.IS_sample_num, self.initial_failed_data_num, \
@@ -344,8 +355,8 @@ class HSCS(nn.Module):
         # get initial failed samples
         self.x_samples, pre_sampling_num_list = self.pre_sampling(initial_failed_data_num, sample_num_each_sphere, bound_num)
         num_mc = self.x_samples.shape[0]
-        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_samples)
-        self.y_samples = y.reshape(num_mc,1)
+        self.phase = "recheck"
+        self.y_samples = self._simulate(self.x_samples)
 
         self.weights = self.get_weights(self.x_samples)
 
@@ -355,6 +366,7 @@ class HSCS(nn.Module):
         self.x_labels, self.centroids, self.k = self.weighted_sphere_Kmeans(self.x_samples, self.k, self.weights)
 
         # get min norm points
+        self.phase = "write_search"
         min_norm_points, spend_num = self.find_min_norm(self.x_samples, self.centroids, self.k, means,find_MN_sam_num=find_MN_sam_num)
 
         ratio = ratio
@@ -370,8 +382,10 @@ class HSCS(nn.Module):
         FOM_list = []
         fail_rate_this_round_list = []
         total_num = 0
+        self.phase = "estimation"
         # start iteration, till fail_rate converges, or Importance sampling times reach pre-defined maximum
-        while ((FOM >= 0.05) and (total_num<max_num)) or (IS_time<30):
+        while strict_budget or (((FOM >= 0.05) and (total_num<max_num)) or (IS_time<30)):
+            self._check_budget(IS_sample_num)
             IS_time += 1  # IS times
             x_IS = mix_model_val.sample(n=IS_sample_num)  # sample from the GMM g(x)
 
@@ -379,10 +393,13 @@ class HSCS(nn.Module):
                 x_IS = self._IS_bound(x_IS, IS_bound_num)
 
             num_mc = x_IS.shape[0]
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
-            y_IS = y.reshape(num_mc,1) 
+            if strict_budget:
+                y_IS, log_f_IS_val, log_g_IS_val, I_IS_val = self._estimate_batch(x_IS, mix_model_val)
+            else:
+                y_IS = self._simulate(x_IS)
 
-            log_f_IS_val, log_g_IS_val, I_IS_val = self._calculate_val(x_IS, y_IS, f_norm, mix_model_val)
+            if not strict_budget:
+                log_f_IS_val, log_g_IS_val, I_IS_val = self._calculate_val(x_IS, y_IS, f_norm, mix_model_val)
 
             # P_f using IS samples of this round
             fail_rate_this_round = self._calculate_fail_rate_this_round(log_f_IS_val, log_g_IS_val, I_IS_val)
@@ -397,7 +414,8 @@ class HSCS(nn.Module):
             FOM = self._calculate_FOM(fail_rate_list, FOM_num)
             FOM_list.append(FOM)
 
-            total_num = pre_sampling_num_list[-1] + IS_time * y_IS.shape[0] + spend_num
+            total_num = self.submitted_samples if strict_budget else pre_sampling_num_list[-1] + IS_time * y_IS.shape[0] + spend_num
+            self.last_estimate = dict(pfail=float(fail_rate), FOM=float(FOM), samples=total_num)
 
             self.save_result(fail_rate, FOM, num=total_num, used_time=time.time() - now_time, seed=self.seed) # save data
             print(f" # Total sample: {total_num}, fail_rate: {fail_rate}, FOM: {FOM}")
