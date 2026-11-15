@@ -38,7 +38,28 @@ def weight_summary(records):
     state = "underflow" if linear == 0 else ("overflow" if not math.isfinite(linear) else "representable")
     return dict(estimation_draws_evaluated=count, supported_estimation_draws=supported,
                 log10_pfail=value / math.log(10),
-                log_domain_pfail=linear if math.isfinite(linear) else None, numeric_status=state)
+                log_domain_pfail=linear if math.isfinite(linear) and linear > 0 else None, numeric_status=state)
+
+
+def sampling_diagnostics(records):
+    completed = [r for r in records if r["status"] == "evaluated"]
+    count = sum(len(r["samples"]) for r in completed)
+    if not count:
+        return dict(log10_mean_weight=None, weight_ess=None, warnings=["no_estimation_samples"])
+    weights = np.concatenate([r["log_f"] - r["log_g"] for r in completed])
+    finite = weights[np.isfinite(weights)]
+    if not len(finite):
+        return dict(log10_mean_weight=None, weight_ess=0.0, warnings=["all_observed_weights_zero"])
+    total = float(logsumexp(finite))
+    log_mean = total - math.log(count)
+    scaled = np.exp(finite - finite.max())
+    ess = float(scaled.sum() ** 2 / (scaled ** 2).sum())
+    warnings = []
+    if log_mean < math.log(.1):
+        warnings.append("low_observed_weight_mass")
+    elif log_mean > math.log(10):
+        warnings.append("high_observed_weight_mass")
+    return dict(log10_mean_weight=log_mean / math.log(10), weight_ess=ess, warnings=warnings)
 
 
 def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1):
@@ -102,6 +123,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     stats = weight_summary(records)
     # A partial estimate remains diagnostic only when any requested simulation failed.
     summary.update(status=status, detail=error, diagnostics=stats,
+        sampling_diagnostics=sampling_diagnostics(records),
         algorithm_requested_samples=getattr(algorithm, "submitted_samples", 0),
         phase_samples=getattr(algorithm, "phase_samples", {}),
         zero_target_samples=getattr(algorithm, "zero_target_samples", 0),
@@ -135,6 +157,8 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         f"- 估算抽样总数：{stats['estimation_draws_evaluated']}；其中属于目标范围：{stats['supported_estimation_draws']}",
         f"- 数值状态：{stats['numeric_status']}",
         f"- 对数核对得到的估计值：{summary['pfail_estimate']}；log10：{summary['log10_pfail']}", "",
+        f"- 抽样诊断：{summary['sampling_diagnostics']}",
+        "平均权重远小于1或远大于1时给出诊断提示，不是算法正确与否的判决；ESS也不是准确性保证。",
         "这是接入诊断，不能据此给算法排名。没有找到初始失效点时估计留空。",
         "zero_observed_contribution表示本批估算没有非零贡献，不能证明实际失效率为零。",
         "underflow表示普通数字表示不了这么小的估计，应看log10；这也不证明估计准确。",
