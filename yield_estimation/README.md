@@ -104,3 +104,7 @@ requires a new simulation; this command changes only the delay limit.
 ## Original-proposal MNIS diagnostic entry
 
 See [the Chinese usage and acceptance record](evaluation/MNIS_PORTING.md) for the MNIS diagnostic command, budget accounting, zero-target draws, and underflow warnings. The comparison command reads existing MC/MNIS reports; it does not produce a validated ranking.
+
+## 多算法统一诊断入口
+
+MC、MNIS、AIS、ACS、HSCS 的接入状态、参数、限制与读写分工见 [零基础接入说明](evaluation/ADAPTIVE_PORTING.md)。这不是合格的算法排行榜。
