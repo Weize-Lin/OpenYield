@@ -8,7 +8,9 @@ from yield_estimation.tool.util import write_data2csv, seed_set
 from yield_estimation.tool.Distribution.normal_v1 import norm_dist
 from yield_estimation.tool.Distribution.gmm_v2 import mixture_gaussian
 import torch.nn as nn
-class AIS(nn.Module):
+from ._recorded_algorithm import RecordedAlgorithm
+
+class AIS(RecordedAlgorithm, nn.Module):
     threshold = 3.745662e-09
     _BOUND_FILE_MAP = {
         18: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_18_bound.txt',
@@ -106,8 +108,7 @@ class AIS(nn.Module):
             # new_x = sample_sphere(num=sample_num_each_sphere,dim=feat_num,radius=radius)
             new_x = np.random.uniform(low=origin_sam_bound_num * self.low_bounds, high=origin_sam_bound_num * self.up_bounds, size=[sample_num_each_sphere,feat_num])
             num_mc = new_x.shape[0]
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
-            new_y = y.reshape(num_mc,1)
+            new_y = self._simulate(new_x)
 
             y_labels = self.indicator_func(new_y).reshape([-1])
 
@@ -216,7 +217,7 @@ class AIS(nn.Module):
         return mix_model
 
    # Algorithm Workflow (Importance Sampling + Adaptive GMM)
-    def start_estimate(self, max_num=1000000): 
+    def start_estimate(self, max_num=1000000, *, strict_budget=False):
         """
             call this function to start the yield estimation process,
             and the numerical results will be saved in "./results/ACS_case*.csv" automatically.
@@ -228,6 +229,7 @@ class AIS(nn.Module):
             :param sample_num_each_sphere: the number of samples each time during initial sampling
             :param FOM_num: the used number of latest fail rates to calculate FOM
         """
+        self._budget_setup(max_num, strict_budget)
         f_norm, g_cal_num,  initial_failed_data_num, FOM_num =  self.f_norm, self.g_cal_num,  self.initial_failed_data_num, self.FOM_num
         IS_bound_num, IS_bound_on = self.IS_bound_num, self.IS_bound_on
         sample_num_each_sphere = self.sample_num_each_sphere
@@ -238,8 +240,9 @@ class AIS(nn.Module):
         self.x_samples, initial_sample_total_num = self.pre_sampling(initial_failed_data_num, sample_num_each_sphere, origin_sam_bound_num=origin_sam_bound_num)
 
         num_mc = self.x_samples.shape[0]
-        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_samples)
-        self.y_samples= y.reshape(num_mc,1)
+        self.phase = "recheck"
+        self.y_samples = self._simulate(self.x_samples)
+        self.phase = "estimation"
 
         fail_rate_list = []
         FOM_list = []
@@ -252,7 +255,8 @@ class AIS(nn.Module):
 
         sample_data_num = 0
       
-        while (sample_data_num<max_num) and (FOM_metric >= 0.05) or (gen_time<35):
+        while strict_budget or ((sample_data_num<max_num) and (FOM_metric >= 0.05) or (gen_time<35)):
+            self._check_budget(num_generate_each_norm * initial_failed_data_num)
             gen_time += 1 # IS time
             x_fail_num = self.x_samples.shape[0]
             # g(x) for IS sampling  
@@ -268,19 +272,22 @@ class AIS(nn.Module):
             if IS_bound_on:
                  IS_x_samples= self._IS_bound(IS_x_samples, IS_bound_num)
             num_mc = IS_x_samples.shape[0]
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=IS_x_samples)
-            IS_y_samples = y.reshape(num_mc,1)
+            if strict_budget:
+                IS_y_samples, log_f_val, log_g_val, I_val = self._estimate_batch(IS_x_samples, norm_mixture)
+            else:
+                IS_y_samples = self._simulate(IS_x_samples)
 
             #  Compute log f(x), log g(x)和I(x)
-            log_f_val, log_g_val, I_val = self._calculate_val(IS_x_samples, IS_y_samples, f_norm, norm_mixture)
+            if not strict_budget:
+                log_f_val, log_g_val, I_val = self._calculate_val(IS_x_samples, IS_y_samples, f_norm, norm_mixture)
             # calculate the weight of each x
             weight_list = self.calculate_weights(log_f_val, log_g_val, I_val)
             #print(weight_list)
             weight_sum_list.append(sum(weight_list))
 
             # calculate the overall P_f
-            fail_rate = self._calculate_fail_rate(weight_sum_list, N=initial_failed_data_num) 
-            # Here, since the number of samples per round is the same as in the initial round, we directly set N as the number of initial failed samples.
+            fail_rate = self._calculate_fail_rate(weight_sum_list, N=num_mc)
+            # Count every draw, including num_generate_each_norm > 1.
             fail_rate_list.append(fail_rate)
 
             # calculate FOM
@@ -292,7 +299,7 @@ class AIS(nn.Module):
             log_f_val_origin, log_g_val_origin, I_val_origin = self._calculate_val(self.x_samples, self.y_samples, f_norm, norm_mixture)
             origin_weight_list = self.calculate_weights(log_f_val_origin, log_g_val_origin, I_val_origin)
 
-            sample_data_num = initial_sample_total_num + gen_time * initial_failed_data_num  # The total number of failure samples is the sum of initial sampling cost and total resampling cost.
+            sample_data_num = self.submitted_samples if strict_budget else initial_sample_total_num + gen_time * num_mc  # The total number of failure samples is the sum of initial sampling cost and total resampling cost.
             self.x_samples, self.y_samples = self.resampling_new(x=np.vstack([self.x_samples, IS_x_samples]),
                                                                 y=np.vstack([self.y_samples, IS_y_samples]),
                                                                 log_f=np.concatenate([log_f_val_origin,log_f_val],axis=0),
@@ -304,6 +311,7 @@ class AIS(nn.Module):
             data_num_list.append(sample_data_num)
             # save metric & data sampled number
             used_time = time.time() - now_time
+            self.last_estimate = dict(pfail=float(fail_rate), FOM=float(FOM_metric), samples=sample_data_num)
             self.save_result(fail_rate, FOM_metric, num=sample_data_num, used_time=time.time() - now_time, seed=self.seed)
             print(f"[AIS] # already sample {sample_data_num} data, fail_rate: {fail_rate}, FOM: {FOM_metric}")
 

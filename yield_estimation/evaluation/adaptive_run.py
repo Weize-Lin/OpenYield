@@ -1,0 +1,168 @@
+"""Diagnostic entry for repository AIS/ACS; explicit proposal variance, no clipping."""
+import argparse
+import csv
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import shutil
+
+import numpy as np
+from scipy.special import logsumexp
+from yield_estimation.evaluation.run import (
+    read_config, configure, nominal_parameters, IndependentProcess, build_testbench,
+    RecordedReadTestbench, source_revision, PARAMETER_FORMAT,
+)
+from yield_estimation.model_lib.AIS import AIS
+from yield_estimation.model_lib.ACS import ACS
+from yield_estimation.model_lib._recorded_algorithm import AlgorithmBudgetReached
+from yield_estimation.evaluation.mnis_run import weight_summary, sampling_diagnostics
+
+
+def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
+        algorithm_name="ais", proposal_variance=1.0):
+    if algorithm_name not in ("ais", "acs"):
+        raise ValueError("Choose ais or acs")
+    if not math.isfinite(proposal_variance) or proposal_variance <= 0:
+        raise ValueError("proposal variance must be positive and finite")
+    for count in (initial_batch, initial_failures, estimation_batch):
+        if type(count) is not int or count < 1:
+            raise ValueError("MNIS batch sizes and initial failure count must be positive integers")
+    if algorithm_name == "ais" and estimation_batch % initial_failures:
+        raise ValueError("AIS estimation batch must be a multiple of initial failure count")
+    output = output.resolve()
+    output.mkdir(parents=True, exist_ok=False)
+    settings = dict(initial_batch=initial_batch, initial_failures=initial_failures,
+                    estimation_batch=estimation_batch, strict_budget=True,
+                    skip_zero_target=False, legacy_clipping=False,
+                    proposal_variance=proposal_variance, algorithm=algorithm_name)
+    (output / "run_config.json").write_text(json.dumps(config, indent=2))
+    (output / "algorithm_settings.json").write_text(json.dumps(settings, indent=2))
+    (output / "samples.csv").write_text("sample,batch,xyce_run,read_delay_s,outcome\n")
+    revision, dirty = source_revision()
+    summary = dict(config, algorithm="repository_" + algorithm_name.upper() + "_configured_proposal",
+                   git_revision=revision, git_tracked_files_modified=dirty,
+                   budget_basis="submitted_requests_including_recheck",
+                   config_batch_size_note="MC setting; adaptive algorithm uses algorithm_settings.json",
+                   process_param_format=PARAMETER_FORMAT, settings=settings)
+    algorithm = recorder = None
+    original_dir = Path.cwd()
+    error = None
+    status = "incomplete"
+    try:
+        summary["xyce"] = shutil.which("Xyce")
+        if not summary["xyce"]:
+            raise RuntimeError("Xyce not found; activate openyield")
+        circuit = configure(3, 2, False, config["corner"])
+        circuit.global_config.vdd = config["vdd"]
+        circuit.global_config.temperature = config["temperature_c"]
+        if circuit.global_config.sram_cell_type != "SRAM_6T_CELL":
+            raise ValueError("Only SRAM_6T_CELL is supported")
+        model = Path(getattr(circuit.global_config, "pdk_path_" + config["corner"]))
+        means = nominal_parameters(circuit.sram_6t_cell, model)
+        summary.update(model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
+                       nominal_parameters=means.tolist(), dimensions=len(means))
+        target = IndependentProcess(means, config["relative_std"], config["seed"])
+        bench = build_testbench(circuit, str(output), variation_mode="custom", mc_seed=None, real_cell_mode=0)
+        summary.update(driver_sizes=bench.driver_sizes.to_dict(), timing=bench.timing_config.to_dict(),
+                       interconnect=bench.interconnect.to_dict(), equivalent=bench.equivalent.to_dict())
+        recorder = RecordedReadTestbench(bench, output, config)
+        if algorithm_name == "ais":
+            algorithm = AIS(target, recorder, 1, False, len(means),
+                            g_cal_num=proposal_variance, initial_failed_data_num=initial_failures,
+                            num_generate_each_norm=estimation_batch // initial_failures,
+                            sample_num_each_sphere=initial_batch, seed=config["seed"])
+        else:
+            algorithm = ACS(recorder, len(means), 1, False, target, proposal_variance,
+                            initial_failures, initial_batch, estimation_batch, 10, config["seed"])
+        algorithm.threshold = config["threshold_ns"] * 1e-9
+        os.chdir(output)
+        algorithm.start_estimate(config["budget"], strict_budget=True)
+        status = "stopped"
+    except AlgorithmBudgetReached as exc:
+        status = "budget_stopped"
+        error = str(exc)
+    except (Exception, KeyboardInterrupt) as exc:
+        status = "error"
+        error = type(exc).__name__ + ": " + str(exc)
+    finally:
+        os.chdir(original_dir)
+    for i, record in enumerate(getattr(algorithm, "request_records", [])):
+        np.savez(output / f"request_{i:04d}.npz", **record)
+    records = getattr(algorithm, "estimation_records", [])
+    for i, record in enumerate(records):
+        np.savez(output / f"estimation_{i:04d}.npz", **record)
+    stats = weight_summary(records)
+    # A partial estimate remains diagnostic only when any requested simulation failed.
+    summary.update(status=status, detail=error, diagnostics=stats,
+        sampling_diagnostics=sampling_diagnostics(records),
+        algorithm_requested_samples=getattr(algorithm, "submitted_samples", 0),
+        phase_samples=getattr(algorithm, "phase_samples", {}),
+        zero_target_samples=getattr(algorithm, "zero_target_samples", 0),
+        simulator_submitted_samples=recorder.submitted if recorder else 0,
+        simulator_returned_samples=recorder.returned if recorder else 0,
+        original_estimate=getattr(algorithm, "last_estimate", None),
+        pfail_estimate=stats["log_domain_pfail"] if status != "error" else None,
+        log10_pfail=stats["log10_pfail"] if status != "error" else None,
+        ranking_eligible=False)
+    with (output / "estimation_draws.csv").open("w", newline="") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(["round", "draw", "target_supported", "round_status", "read_delay_s",
+                         "failure_indicator", "log_target_density", "log_proposal_density"])
+        for i, record in enumerate(records):
+            for j, supported in enumerate(record["support"]):
+                evaluated = record["status"] == "evaluated"
+                delay = record["delays"][j]
+                writer.writerow([i, j, bool(supported), record["status"],
+                    float(delay) if supported and np.isfinite(delay) else "",
+                    bool(record["indicator"][j]) if supported and evaluated else "",
+                    float(record["log_f"][j]), float(record["log_g"][j])])
+    original = summary["original_estimate"]
+    if original:
+        summary["original_estimate"] = {k: str(v) if isinstance(v, float) and not math.isfinite(v) else v for k, v in original.items()}
+    (output / "run_summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False))
+    text = [f"# {algorithm_name.upper()} 接入诊断", "",
+        f"- 状态：{status}；说明：{error}",
+        f"- 版本：{revision}；未提交改动：{dirty}",
+        f"- 预算：{config['budget']}；提交请求：{summary['algorithm_requested_samples']}",
+        f"- 阶段计数：{summary['phase_samples']}",
+        f"- 实际送入仿真：{summary['simulator_submitted_samples']}；返回：{summary['simulator_returned_samples']}",
+        f"- 抽样方差：{proposal_variance}（算法设置，不是目标工艺分布）",
+        f"- 数值状态：{stats['numeric_status']}；估计：{summary['pfail_estimate']}；log10：{summary['log10_pfail']}",
+        f"- 抽样诊断：{summary['sampling_diagnostics']}", "",
+        "调用仓库原算法类，增加预算与记录；AIS 修正每批多抽样时的分母。",
+        "没有更换初始均匀抽样或中心更新方法。方差由用户显式选择，实际设置在 algorithm_settings.json。",
+        "初始化、复测、估算全部计入预算。预算不足执行完整下一批时停止。",
+        "非法参数和无法判定的仿真不会当成通过或电路失效，不会补抽。",
+        "request_*.npz 保留每次请求，estimation_*.npz 和 estimation_draws.csv 保留估算密度与标签。",
+        "samples.csv 记录实际仿真。原公式结果在 original_estimate，对数核对值另列。",
+        "这是接入测试，不是算法排名。少量样本下即使进程成功，也可能没有可靠估计。"]
+    (output / "report.md").write_text("\n".join(text) + "\n", encoding="utf-8")
+    print(json.dumps({key: summary[key] for key in ("status", "algorithm_requested_samples",
+          "simulator_submitted_samples", "simulator_returned_samples", "zero_target_samples",
+          "pfail_estimate", "log10_pfail", "diagnostics")}, indent=2))
+    print("report=" + str(output / "report.md"))
+    return 1 if status == "error" else 0
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--config", type=Path, required=True)
+    p.add_argument("--output-dir", type=Path, required=True)
+    p.add_argument("--initial-batch", type=int, default=2)
+    p.add_argument("--initial-failures", type=int, default=1)
+    p.add_argument("--estimation-batch", type=int, default=1)
+    p.add_argument("--algorithm", choices=("ais", "acs"), required=True)
+    p.add_argument("--proposal-variance", type=float, default=1.0)
+    a = p.parse_args()
+    try:
+        return run(read_config(a.config), a.output_dir, a.initial_batch, a.initial_failures, a.estimation_batch,
+                   a.algorithm, a.proposal_variance)
+    except (OSError, ValueError) as exc:
+        p.exit(2, str(exc) + "\n")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+

@@ -8,7 +8,9 @@ from yield_estimation.tool.Distribution.gmm_v2 import mixture_gaussian
 from yield_estimation.tool.Distribution.multi_cone_cluster import cone_cluster
 import mpmath as mp
 
-class ACS():
+from ._recorded_algorithm import RecordedAlgorithm
+
+class ACS(RecordedAlgorithm):
     threshold = 3.745662e-09
     _BOUND_FILE_MAP = {
         18: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_18_bound.txt',
@@ -154,8 +156,7 @@ class ACS():
         while captured_fail_data_num < initial_fail_num: 
             new_x = np.random.uniform(low=self.low_bounds, high=self.up_bounds, size=[sample_num_each_sphere, feat_num])
             num_mc = new_x.shape[0]
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=new_x)
-            new_y = y.reshape(num_mc,1)
+            new_y = self._simulate(new_x)
 
             y_labels = self.indicator(new_y).reshape([-1])
 
@@ -172,7 +173,7 @@ class ACS():
             iter_count += 1
             print(iter_count, y_labels.any())
         x_samples = x_samples[0:initial_fail_num, :]  # discard excess samples
-        sample_total_num = (iter_count+1) * sample_num_each_sphere
+        sample_total_num = iter_count * sample_num_each_sphere
         return x_samples, sample_total_num
         
     #Save the data
@@ -180,11 +181,11 @@ class ACS():
         data_info_list = [[P_fail], [FOM], [num], [used_time]]
 
         write_data2csv(tgt_dir=os.path.join("./results/ACS"), 
-                       tgt_name=f"ACS_write_{self.feature_num}.csv", 
+                       tgt_name=f"ACS_read_{self.feature_num}.csv",
                        head_info=('Pfail', 'FOM', 'num', 'used_time'), 
                        data_info=data_info_list) 
 
-    def start_estimate(self, max_num=100000):
+    def start_estimate(self, max_num=100000, *, strict_budget=False):
         """
             call this function to start the yield estimation process,
             and the numerical results will be saved in "./results/HSCS_case*.csv" automatically.
@@ -198,14 +199,16 @@ class ACS():
             :param FOM_num: the used number of latest fail rates to calculate FOM
         """
 
+        self._budget_setup(max_num, strict_budget)
         f_norm, g_cal_val, initial_fail_num, initial_sample_each, IS_num, FOM_num = self.f_norm, self.g_cal_val, self.initial_fail_num, self.initial_sample_each, self.IS_num, self.FOM_num
 
         time1 = time.time()
         IS_bound_num, IS_bound_on = self.IS_bound_num, self.IS_bound_on
         self.x_fail, origin_sample_num = self._initial_sampling(initial_fail_num, initial_sample_each)
         num_mc = self.x_fail.shape[0]
-        y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=self.x_fail)
-        self.y_fail = y.reshape(num_mc,1)
+        self.phase = "recheck"
+        self.y_fail = self._simulate(self.x_fail)
+        self.phase = "estimation"
 
         k = round(np.sqrt(initial_fail_num))
         d = self.x_fail.shape[-1]
@@ -217,7 +220,8 @@ class ACS():
         iter_count = 0
         FOM=1
 
-        while ((FOM>=0.05)and(iter_count*IS_num+origin_sample_num<max_num)) or (iter_count<20):
+        while strict_budget or (((FOM>=0.05)and(iter_count*IS_num+origin_sample_num<max_num)) or (iter_count<20)):
+            self._check_budget(IS_num)
             self.label_fail = None # classifier.cluster(self.x_fail)  # not used
 
             # weights in the gmm of each normal distribution
@@ -231,8 +235,10 @@ class ACS():
             if IS_bound_on:
                  x_IS= self._IS_bound(x_IS, IS_bound_num)
             num_mc = x_IS.shape[0]
-            y, w_pavg, _, _ = self.mc_testbench.run_mc_simulation(operation='read', target_row=1, target_col=1, mc_runs=num_mc, vars=x_IS)
-            y_IS = y.reshape(num_mc,1)
+            if strict_budget:
+                y_IS, log_f_IS_val, log_g_IS_val, I_IS_val = self._estimate_batch(x_IS, mix_gaussian_val)
+            else:
+                y_IS = self._simulate(x_IS)
 
             # collect only the failed samples from the IS samples
             new_x_fail, new_y_fail = self._identify_fail(x=x_IS, y=y_IS)
@@ -240,7 +246,8 @@ class ACS():
             self.y_fail = np.vstack([self.y_fail, new_y_fail])
 
             # get log f(x), log g(x) and I(x) of IS samples
-            log_f_IS_val, log_g_IS_val, I_IS_val = self._calculate_val(x_IS, y_IS, f_norm, mix_gaussian_val)
+            if not strict_budget:
+                log_f_IS_val, log_g_IS_val, I_IS_val = self._calculate_val(x_IS, y_IS, f_norm, mix_gaussian_val)
 
             # the fail_rate calculated only using IS samples of this iteration round
             fail_rate_this_round = self._calculate_fail_rate_this_round(log_f_IS_val, log_g_IS_val, I_IS_val)
@@ -257,8 +264,10 @@ class ACS():
 
             iter_count+=1
 
-            self._save_result(fail_rate, FOM, iter_count*IS_num+origin_sample_num, time.time()-time1, self.seed)
+            counted = self.submitted_samples if strict_budget else iter_count*IS_num+origin_sample_num
+            self.last_estimate = dict(pfail=float(fail_rate), FOM=float(FOM), samples=counted)
+            self._save_result(fail_rate, FOM, counted, time.time()-time1, self.seed)
 
-            print(f"num:{iter_count*IS_num+origin_sample_num}, pfail:{fail_rate}, FOM:{FOM}")
+            print(f"num:{counted}, pfail:{fail_rate}, FOM:{FOM}")
 
 
