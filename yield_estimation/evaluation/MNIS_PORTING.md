@@ -136,3 +136,30 @@ no_estimation表示尚未得到估算样本。
 再用独立种子重复运行评估稳定性。
 原版MNIS在当前诊断中的抽样覆盖不足，先如实展示，不为接近MC而偷偷调参。
 其他原算法仍需分别审查和接入。
+
+## 一条命令运行所选算法
+
+现在可以用总入口统一运行，不必手动执行三个命令。默认选择MC和MNIS。
+
+先预览，不创建文件、不启动仿真：
+
+```bash
+python -m yield_estimation.evaluation.run_diagnostics \
+  --config yield_estimation/evaluation/cases/read_3x2_rel5.json \
+  --output-dir outputs/my_diagnostics
+```
+
+在同一命令末尾加上 `--run-xyce` 才会实际运行。
+只想跑MC时加 `--algorithms mc`；只想跑MNIS时加 `--algorithms mnis`。
+两者都选中时会自动生成诊断对照表。
+
+总目录中的experiment.json是这轮使用的配置副本。
+suite_summary.json保存完整子命令、日志位置、退出码和每步状态。
+mc/与mnis/各自保存完整结果；comparison/保存对照。
+总report.md只说明执行情况，不表示算法结果可靠。
+
+一个算法失败时保留它的日志，另一算法仍可运行，但跳过两者对照。
+默认示例是1ns门限、每算法4个预算名额，MNIS可能只完成初始化尝试而没有估计。
+已有目录不会被覆盖；请每轮更换输出目录。
+
+真实验收已在提交a0640bc上完成，0.7ns调试门限、每算法预算4。MC、MNIS和对照三个步骤退出码都是0，两算法源版本和固定工况一致。MC实际仿真4次，MNIS实际仿真3次加1条零目标密度抽样。仍不作为算法排名。
