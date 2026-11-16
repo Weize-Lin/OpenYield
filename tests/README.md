@@ -1,6 +1,12 @@
 # Local checks for V2.2.6 and preserved V2.2.4 manifests
 
-Python regression and waveform scripts are kept in local workspaces and ignored by Git. A fresh clone includes this guide and the JSON case manifests under `spice/`, but does not include the Python runner. The manifests preserve the planned V2.2.4 cases; they are not results or qualification evidence.
+The [evaluation weight contract test](test_evaluation_weight_contract.py) is public. From the repository root:
+
+```bash
+python -m unittest discover -s tests -p test_evaluation_weight_contract.py -v
+```
+
+Other Python regression and waveform scripts are kept in local workspaces and ignored by Git. A fresh clone includes this guide and the JSON case manifests under `spice/`, but does not include the Python runner. The manifests preserve the planned V2.2.4 cases; they are not results or qualification evidence.
 
 If your workspace retains the local scripts, run software checks from the repository root:
 

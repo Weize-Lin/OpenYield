@@ -70,14 +70,21 @@ Wilson 区间用于直接从目标工艺独立抽样的 `custom` MC。
 这表示每项围绕自己的名义值向两侧各取三个标准差，作为找第一批失效点的范围。
 这个范围不改变 MC 要估计的工艺分布。报告保存每项的实际搜索上下限。
 
-这个开关也让 MNIS 的抽样方差按目标工艺逐项设定，让 HSCS 从名义点出发搜索。
-报告注明使用哪套设置。AIS、ACS、HSCS 的后续抽样方差仍由 `--proposal-variance` 给定。
-需要对照历史设置时用原 6T 用例，省略 `initialization_sigma`。
+`initialization_sigma` 只控制初始搜索的边界。用它时：
 
-用 10T 保持裕量做一次五算法检查时，可以复制 `cases/hold_snm_10t_configurable.json`，
-设 `initialization_sigma: 3`、`budget: 9`、`threshold_mv: 700`，
-把五个算法都选上并传 `--proposal-variance 1e-8`。这里故意把失效门限放在容易找到失效的位置，
-用来检查从初始化到估算的过程。该门限和方差都属于这一次调试设置。
+- 运行 MNIS，要单独写 `"mnis_proposal_covariance": "target_diagonal"`（按目标工艺逐项取方差），
+  或在支持的 6T 尺寸上选 `"legacy"`（历史提议协方差）。
+- 运行 HSCS，要单独写 `"hscs_search_origin": "nominal"`（从名义点搜索）或 `"legacy"`（历史搜索坐标）。
+- AIS、ACS、HSCS 的后续抽样方差由 `--proposal-variance` 给定。
+
+想复跑以前只写了 `initialization_sigma` 的配置，在原配置上明确补写
+`mnis_proposal_covariance: "target_diagonal"` 和 `hscs_search_origin: "nominal"`，即可还原上轮实际用法。
+历史 6T 用例省略这三个字段时采用历史边界和算法设置。
+
+用 10T 保持裕量检查五算法时，可以复制 `cases/hold_snm_10t_configurable.json`，
+设 `initialization_sigma: 3`、`mnis_proposal_covariance: "target_diagonal"`、
+`hscs_search_origin: "nominal"`、`budget: 9`、`threshold_mv: 700`，并传 `--proposal-variance 1e-8`。
+这里故意把门限放在容易找到失效的位置，用于检查从初始化到估算的流程。
 
 已完成的小样本验证：
 
@@ -85,7 +92,7 @@ Wilson 区间用于直接从目标工艺独立抽样的 `custom` MC。
   各自存档的模型、时序、互连、驱动和等效设置一致。
   HSCS 用 4 条预算跑完 3 条读与 1 条辅助写，尚未进入最终估算。
 - 2×2 读 [1,0]。直接 MC 的 2 条真实仿真均返回，每条保存 72 个器件参数。
-  同一配置可用 `initialization_sigma` 为 MNIS 指定适合 72 项参数的搜索范围。
+  同一配置可用 `initialization_sigma` 指定 72 项参数的搜索范围，并选 `target_diagonal` 提议协方差。
 
 
 ## 选择操作和门限

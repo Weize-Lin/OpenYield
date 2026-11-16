@@ -84,11 +84,13 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
                             initial_failures, initial_batch, estimation_batch, 10, config["seed"],
                             initialization_bounds=bounds)
         else:
+            search_origin = config.get("hscs_search_origin", "legacy")
             algorithm = HSCS(target, recorder, means, len(means), g_var_num=proposal_variance,
                 IS_sample_num=estimation_batch, initial_failed_data_num=initial_failures,
                 sample_num_each_sphere=initial_batch, find_MN_sam_num=1, seed=config["seed"],
-                IS_bound_on=False, num_rows=rows, num_cols=cols, initialization_bounds=bounds)
-            summary["search_origin"] = "legacy" if bounds is None else "nominal"
+                IS_bound_on=False, num_rows=rows, num_cols=cols,
+                initialization_bounds=bounds, search_origin=search_origin)
+            summary["search_origin"] = search_origin
         algorithm.read_target = tuple(options["target"])
         algorithm.operation = operation
         algorithm.threshold = rule.threshold

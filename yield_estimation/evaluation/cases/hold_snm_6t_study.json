@@ -27,5 +27,7 @@
     "interconnect_config": null
   },
   "threshold_mv": 327.65,
+  "mnis_proposal_covariance": "target_diagonal",
+  "hscs_search_origin": "nominal",
   "initialization_sigma": 3
 }

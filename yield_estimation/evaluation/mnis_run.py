@@ -79,8 +79,9 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     (output / "mnis_settings.json").write_text(json.dumps(settings, indent=2))
     (output / "samples.csv").write_text(f"sample,batch,xyce_run,{rule.column},outcome\n")
     revision, dirty = source_revision()
-    implementation = ("repository_MNIS_configured_proposal" if "initialization_sigma" in config
-                      else "repository_MNIS_original_proposal")
+    proposal_mode = config.get("mnis_proposal_covariance", "legacy")
+    implementation = ("repository_MNIS_original_proposal" if proposal_mode == "legacy"
+                      else "repository_MNIS_configured_proposal")
     summary = dict(config, algorithm=implementation,
                    git_revision=revision, git_tracked_files_modified=dirty,
                    budget_basis="algorithm_requests_including_recheck_and_zero_target_draws",
@@ -98,8 +99,8 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         summary["nominal_parameters"] = means.tolist()
         bounds = configured_initialization(config, target, summary)
         recorder = RecordedAccessTestbench(bench, output, config)
-        variances = None if bounds is None else target.sigma ** 2
-        summary["proposal_covariance"] = "legacy" if variances is None else "target_diagonal"
+        variances = target.sigma ** 2 if proposal_mode == "target_diagonal" else None
+        summary["proposal_covariance"] = proposal_mode
         algorithm = MNIS(recorder, target, len(means), means, .01, initial_failures,
                          initial_batch, estimation_batch, 13, .24, 1,
                          seed=config["seed"], IS_bound_on=False, target=options["target"], operation=operation,

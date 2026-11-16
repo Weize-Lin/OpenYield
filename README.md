@@ -71,7 +71,14 @@ python -m compileall -q sram_compiler utils size_optimization yield_estimation
 python main_sram.py  # set RUN_XYCE=False for deck generation without Xyce
 ```
 
-The regression and waveform Python scripts are retained only in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the unfinished V2.2.5 screen; no V2.2.5 or V2.2.6 full screen has completed. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
+The [public weight contract checks](tests/test_evaluation_weight_contract.py) exercise estimator imports,
+analytic reference probabilities, and explicit settings:
+
+```bash
+python -m unittest discover -s tests -p test_evaluation_weight_contract.py -v
+```
+
+The other regression and waveform Python scripts are retained in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the unfinished V2.2.5 screen; no V2.2.5 or V2.2.6 full screen has completed. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
 
 ## Guides and project map
 

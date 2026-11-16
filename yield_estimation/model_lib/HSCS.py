@@ -20,12 +20,16 @@ class HSCS(RecordedAlgorithm, nn.Module):
     def __init__(self, f_norm, mc_testbench,means, feature_num, g_var_num=1, bound_num=1, IS_sample_num=100,
                        initial_failed_data_num=50, sample_num_each_sphere=1000,
                        max_gen_times=10, ratio=0.1, FOM_num=10, find_MN_sam_num=100, seed=0,
-                       IS_bound_num=1, IS_bound_on=True, g_cal_var=1, *, num_rows=None, num_cols=None, initialization_bounds=None):
+                       IS_bound_num=1, IS_bound_on=True, g_cal_var=1, *, num_rows=None, num_cols=None, initialization_bounds=None, search_origin=None):
         super(HSCS, self).__init__()
         self.num_rows, self.num_cols = num_rows, num_cols
         self.feature_num = feature_num
         self.means = means
-        self.search_from_nominal = initialization_bounds is not None
+        if search_origin is None:
+            search_origin = "nominal" if initialization_bounds is not None else "legacy"
+        if search_origin not in ("legacy", "nominal"):
+            raise ValueError("search_origin must be legacy or nominal")
+        self.search_from_nominal = search_origin == "nominal"
         self.mc_testbench = mc_testbench
         self.x_samples = None
         self.y_samples = None

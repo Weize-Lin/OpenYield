@@ -36,6 +36,7 @@ miniconda/
 # Local regression and waveform scripts are retained in existing workspaces.
 tests/**/*.py
 tests/*.py
+!tests/test_evaluation_weight_contract.py
 size_optimization/openyield_v2/tests/*.py
 # Optional local comparison and sampling experiments.
 sram_compiler/equivalent_modeling/compare.py

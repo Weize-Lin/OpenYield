@@ -13,8 +13,9 @@ def condition_mismatches(left, right):
     threshold = "threshold_mv" if "threshold_mv" in left or "threshold_mv" in right else "threshold_ns"
     if threshold not in left or threshold not in right or left[threshold] != right[threshold]:
         fields.append(threshold)
-    if left.get("initialization_sigma") != right.get("initialization_sigma"):
-        fields.append("initialization_sigma")
+    for setting in ("initialization_sigma", "mnis_proposal_covariance", "hscs_search_origin"):
+        if left.get(setting) != right.get(setting):
+            fields.append(setting)
     if left.get("resolved_circuit") != right.get("resolved_circuit"):
         fields.append("resolved_circuit")
     return fields

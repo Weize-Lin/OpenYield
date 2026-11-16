@@ -61,7 +61,9 @@ def read_config(path):
         raise ValueError(f"Supported cases: {', '.join(CASE_OPERATIONS)}")
     operation = CASE_OPERATIONS[case]
     required = FIELDS | {MeasurementRule.threshold_key_for(operation)}
-    if config.keys() - {"circuit", "initialization_sigma"} != required:
+    if config.keys() - {
+            "circuit", "initialization_sigma", "mnis_proposal_covariance", "hscs_search_origin",
+    } != required:
         raise ValueError(f"{operation} requires an optional circuit block and these fields: {', '.join(sorted(required))}")
     if config["corner"] not in ("TT", "FF", "SS", "FS", "SF"):
         raise ValueError("corner must be TT, FF, SS, FS or SF")
@@ -118,6 +120,11 @@ def evaluation_circuit_options(config):
     if "initialization_sigma" in config and (
             type(sigma) not in (int, float) or not math.isfinite(sigma) or sigma <= 0):
         raise ValueError("initialization_sigma must be positive and finite")
+    for key, choices in (
+            ("mnis_proposal_covariance", ("legacy", "target_diagonal")),
+            ("hscs_search_origin", ("legacy", "nominal"))):
+        if key in config and config[key] not in choices:
+            raise ValueError(f"{key} must be one of {', '.join(choices)}")
     if options["real_cell_mode"] is None:
         inherited = configure_circuit(options).global_config.equivalent
         options["real_cell_mode"] = resolve_equivalent(inherited).mode
@@ -152,9 +159,16 @@ def validate_algorithm_case(options, algorithm, config):
         raise ValueError("Choose MC for simulator-managed sampling; importance sampling needs an explicit process density")
     if algorithm != "mc" and options["real_cell_mode"] != 0:
         raise ValueError("Approximate array modes currently use MC; choose real_cell_mode 0 for importance sampling")
+    dimensions = access_case_dimensions(options)
+    if "initialization_sigma" in config:
+        required = {"mnis": "mnis_proposal_covariance", "hscs": "hscs_search_origin"}.get(algorithm)
+        if required is not None and required not in config:
+            raise ValueError(f"Set {required} explicitly alongside initialization_sigma for {algorithm.upper()}")
+    if algorithm == "mnis" and config.get("mnis_proposal_covariance", "legacy") == "legacy":
+        if options["cell_type"] != "SRAM_6T_CELL" or dimensions not in (18, 108, 576):
+            raise ValueError("Choose mnis_proposal_covariance=target_diagonal for this circuit")
     if algorithm == "mc" or "initialization_sigma" in config:
         return
-    dimensions = access_case_dimensions(options)
     # Legacy bounds and MNIS proposal settings were supplied for 6T only.
     if options["cell_type"] != "SRAM_6T_CELL" or dimensions not in (18, 108, 576):
         raise ValueError(f"{algorithm.upper()} has no legacy bounds for {dimensions} parameters in "

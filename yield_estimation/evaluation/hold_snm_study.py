@@ -136,6 +136,9 @@ def method_rows(seeds):
                          seed_std=stdev(estimates) if scored else None,
                          mean_absolute_error=mean(errors) if scored else None,
                          rmse=math.hypot(*errors) / math.sqrt(len(errors)) if scored else None,
+                         weight_diagnostic_runs=sum(row["weight_ess"] is not None for row in trials),
+                         low_weight_runs=sum("low_observed_weight_mass" in row["weight_warnings"].split(";")
+                                             for row in trials),
                          estimates_above_one=sum(row["above_one"] for row in trials)))
     return rows
 
@@ -161,14 +164,20 @@ def report(output, base, tasks, results):
              f"失效定义为保持裕量低于 {base['threshold_mv']} mV。",
              f"独立 MC 参考为 {failures}/{trials}（{point:.3%}），95% Wilson 区间 {lower:.3%}–{upper:.3%}。", "",
              f"每个算法跑 {len(TRIAL_SEEDS)} 个种子，每次预算 {base['budget']} 条，包含找失效点和复测。",
-             "只有实际仿真次数齐全、工况一致且有估计的种子才计入，缺任一个种子就留空该算法的汇总误差。",
+             "工况和预算通过表示本轮有估计、提交与返回齐全且工况一致。低权重告警单独记入，保留这些轮次的误差。",
+             "低权重告警的分母是有权重诊断的种子数。任何种子未通过工况与预算核对时，汇总误差留空。",
              "误差以参考点估计为准，参考值本身也有抽样误差。结果适用于本次工况和报告所列算法设置。", "",
-             "| 算法 | 可比较的种子 | 平均估计 (%) | 跨种子标准差 (百分点) | 平均绝对误差 (百分点) | RMSE (百分点) |",
-             "| --- | ---: | ---: | ---: | ---: | ---: |"]
+             "| 算法 | 通过工况与预算核对 | 低权重告警 | 平均估计 (%) | 跨种子标准差 (百分点) | 平均绝对误差 (百分点) | RMSE (百分点) |",
+             "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"]
     for row in methods:
         values = [row[key] for key in ("mean_estimate", "seed_std", "mean_absolute_error", "rmse")]
         metrics = " | ".join(display_percent(value) for value in values)
-        lines.append(f"| {row['algorithm']} | {row['eligible_runs']}/{row['total_runs']} | {metrics} |")
+        count = row["total_runs"]
+        diagnosed = row["weight_diagnostic_runs"]
+        warning = f"{row['low_weight_runs']}/{diagnosed}" if diagnosed else "—"
+        if row["low_weight_runs"]:
+            warning = f"**{warning}**"
+        lines.append(f"| {row['algorithm']} | {row['eligible_runs']}/{count} | {warning} | {metrics} |")
     lines += ["", "逐个种子的诊断、提交与返回数见 per_seed.csv。",
               "study_plan.json 保存实验配置和原始命令。并行运行的耗时受资源竞争影响，表格按仿真样本条数比较。"]
     (output / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
