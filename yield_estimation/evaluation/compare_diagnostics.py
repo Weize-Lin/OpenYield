@@ -29,7 +29,8 @@ def compare(mc_dir, mnis_dir, output):
     raw = [(d / "run_summary.json").read_bytes() for d in (mc_dir, mnis_dir)]
     mc, mnis = [json.loads(data) for data in raw]
     if mc.get("algorithm") != "repository_MC" or mnis.get("algorithm") not in (
-            "repository_MNIS_original_proposal", "repository_MNIS_configured_proposal"):
+            "repository_MNIS_original_proposal", "repository_MNIS_configured_proposal",
+            "repository_MNIS_defensive_mixture"):
         raise ValueError("Expected custom-sampling repository MC and repository MNIS reports")
     if mc.get("status") != "complete" or mnis.get("status") not in ("budget_stopped", "stopped"):
         raise ValueError("Only completed diagnostic runs can be compared; inspect failed reports separately")
@@ -62,6 +63,7 @@ def compare(mc_dir, mnis_dir, output):
                 failure_count=mc["failure_count"], pfail_estimate=mc["pfail_estimate"],
                 interval=mc["pfail_interval"]),
         mnis=dict(implementation=mnis["algorithm"], budget=mnis["budget"],
+                  target_fraction=mnis.get("mnis_target_fraction", 0.),
                   algorithm_requests=mnis["algorithm_requested_samples"],
                   simulator_submitted_samples=mnis_calls,
                   simulator_returned_samples=mnis["simulator_returned_samples"],
@@ -71,7 +73,7 @@ def compare(mc_dir, mnis_dir, output):
     )
     report = [
         "# MC 与 MNIS 的诊断对照", "",
-        f"MNIS 实现：{mnis['algorithm']}。", "",
+        f"MNIS 实现：{mnis['algorithm']}。混入原工艺分布的概率：{mnis.get('mnis_target_fraction', 0.):g}。", "",
         "此表检查接入结果，不产生排名。门限和预算若用于调试，不能当成正式设计指标。", "",
         "| 项目 | MC | MNIS |", "| --- | --- | --- |",
         f"| 配置预算名额 | {mc['budget']} | {mnis['budget']} |",

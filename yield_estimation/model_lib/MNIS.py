@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from yield_estimation.tool.util import write_data2csv, seed_set
 from yield_estimation.tool.Distribution.normal_v1 import norm_dist
+from yield_estimation.tool.Distribution.defensive_mixture import DefensiveMixture
 class MNISBudgetReached(RuntimeError):
     """The next full batch does not fit; no simulator call was made."""
 
@@ -17,10 +18,13 @@ class MNIS():
         576: 'model_bound_576.txt',
         2304: 'model_bound_2304.txt'
     }
-    def __init__(self, mc_testbench, f_norm, feature_num, means, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, g_cal_val, IS_bound_num, seed=0, IS_bound_on=False, *, target=(1, 1), operation="read", initialization_bounds=None, proposal_variance=None):
+    def __init__(self, mc_testbench, f_norm, feature_num, means, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, g_cal_val, IS_bound_num, seed=0, IS_bound_on=False, *, target=(1, 1), operation="read", initialization_bounds=None, proposal_variance=None, target_fraction=0.):
         self.mc_testbench = mc_testbench
         self.target = tuple(target)
         self.operation = operation
+        if not 0 <= target_fraction < 1:
+            raise ValueError("MNIS target_fraction must be in [0, 1)")
+        self.target_fraction = target_fraction
         self.configured_proposal_variance = (
             None if proposal_variance is None else np.asarray(proposal_variance, dtype=float)
         )
@@ -200,6 +204,8 @@ class MNIS():
             raise ValueError("MNIS sample counts must be positive integers")
         if skip_zero_target and (self.IS_bound_on or not callable(getattr(self.f_norm, "in_support", None))):
             raise ValueError("Zero-target handling requires explicit support and no sample clipping")
+        if self.target_fraction and not (strict_budget and skip_zero_target):
+            raise ValueError("Defensive mixture requires a strict budget and explicit target support")
         self.zero_target_samples = 0
         self.estimation_draws = 0
         self.estimation_records = []
@@ -240,6 +246,10 @@ class MNIS():
         cov_matrix = np.diag(variances)
         g_sam_norm = norm_dist(mu=min_norm, var=cov_matrix)
         g_cal_norm = norm_dist(mu=min_norm, var=cov_matrix)
+        if self.target_fraction:
+            g_sam_norm = g_cal_norm = DefensiveMixture(
+                f_norm, g_sam_norm, self.target_fraction, feature_num,
+            )
         fail_rate_list = []
         FOM_list = []
         fail_rate_this_round_list = []
@@ -263,6 +273,8 @@ class MNIS():
             #print(num_mc)
             if skip_zero_target:
                 log_f_IS_val, log_g_IS_val, I_IS_val = self._supported_estimation(x_IS, g_cal_norm)
+                if self.target_fraction:
+                    self.estimation_records[-1]["from_target"] = g_sam_norm.last_target_mask.copy()
             else:
                 y, w_pavg, _, _ = self._simulate(x_IS)
                 y_IS = y.reshape(num_mc,1)

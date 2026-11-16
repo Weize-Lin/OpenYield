@@ -80,8 +80,11 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     (output / "samples.csv").write_text(f"sample,batch,xyce_run,{rule.column},outcome\n")
     revision, dirty = source_revision()
     proposal_mode = config.get("mnis_proposal_covariance", "legacy")
+    target_fraction = config.get("mnis_target_fraction", 0.)
     implementation = ("repository_MNIS_original_proposal" if proposal_mode == "legacy"
                       else "repository_MNIS_configured_proposal")
+    if target_fraction:
+        implementation = "repository_MNIS_defensive_mixture"
     summary = dict(config, algorithm=implementation,
                    git_revision=revision, git_tracked_files_modified=dirty,
                    budget_basis="algorithm_requests_including_recheck_and_zero_target_draws",
@@ -104,7 +107,8 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         algorithm = MNIS(recorder, target, len(means), means, .01, initial_failures,
                          initial_batch, estimation_batch, 13, .24, 1,
                          seed=config["seed"], IS_bound_on=False, target=options["target"], operation=operation,
-                         initialization_bounds=bounds, proposal_variance=variances)
+                         initialization_bounds=bounds, proposal_variance=variances,
+                         target_fraction=target_fraction)
         algorithm.threshold = rule.threshold
         algorithm.indicator = rule.failures
         os.chdir(output)
@@ -122,6 +126,10 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     for i, record in enumerate(records):
         np.savez(output / f"estimation_{i:04d}.npz", **record)
     stats = weight_summary(records)
+    summary["mnis_target_fraction"] = target_fraction
+    summary["target_mixture_draws"] = sum(
+        int(record["from_target"].sum()) for record in records if "from_target" in record
+    )
     # A partial estimate remains diagnostic only when any requested simulation failed.
     summary.update(status=status, detail=error, diagnostics=stats,
         sampling_diagnostics=sampling_diagnostics(records),
@@ -156,7 +164,8 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     text = [
         "# MNIS 接入诊断", "",
         f"- 实现：{summary['algorithm']}",
-        f"- 提议分布的方差：{summary.get('proposal_covariance', 'unavailable')}",
+        f"- 基础提议协方差：{summary.get('proposal_covariance', 'unavailable')}",
+        f"- 混入原工艺分布的概率：{target_fraction:g}，实际选中 {summary['target_mixture_draws']} 条",
         f"- 测评：{operation}，{rule.metric} {rule.operator} {rule.threshold_value:g} {rule.unit} 判为超限",
         f"- 状态：{status}；说明：{error}",
         f"- 代码：{revision}；未提交改动：{dirty}",

@@ -14,6 +14,7 @@ from yield_estimation.evaluation.hold_snm_study import method_rows
 from yield_estimation.evaluation.run import evaluation_circuit_options, read_config, validate_algorithm_case
 from yield_estimation.evaluation.run_diagnostics import MODULES
 from yield_estimation.model_lib._recorded_algorithm import RecordedAlgorithm
+from yield_estimation.tool.Distribution.defensive_mixture import DefensiveMixture
 from yield_estimation.tool.Distribution.gmm_v2 import mixture_gaussian
 from yield_estimation.tool.Distribution.normal_v1 import norm_dist
 
@@ -69,6 +70,19 @@ class ImportanceWeightChecks(unittest.TestCase):
         expected_log_proposal = np.logaddexp.reduce(components + np.log(coefficients), axis=1)
         np.testing.assert_allclose(records[0]["log_g"], expected_log_proposal, atol=5e-6)
         self.assertAlmostEqual(weight_summary(records)["log_domain_pfail"], self.exact, delta=.005)
+
+    def test_defensive_mixture_bounds_weights_and_estimates_known_tail(self):
+        distant = norm_dist(np.array([8.]), np.array([[1.]]))
+        proposal = DefensiveMixture(self.target, distant, .5, 1)
+        samples = proposal.sample(24000)
+        records = self.recorded_batch(proposal, samples)
+        record = records[0]
+        exact_weight = 2 / (1 + np.exp(8 * samples[:, 0] - 32))
+        np.testing.assert_allclose(np.exp(record["log_f"] - record["log_g"]), exact_weight, rtol=1e-12)
+        self.assertLessEqual(float(np.max(np.exp(record["log_f"] - record["log_g"]))), 2 + 1e-12)
+        self.assertGreaterEqual(int(proposal.last_target_mask.sum()), 11400)
+        self.assertLessEqual(int(proposal.last_target_mask.sum()), 12600)
+        self.assertAlmostEqual(weight_summary(records)["log_domain_pfail"], self.exact, delta=.012)
 
     def test_zero_density_draw_still_counts_in_denominator(self):
         records = [dict(status="evaluated", samples=np.ones((2, 1)), support=np.array([True, False]),

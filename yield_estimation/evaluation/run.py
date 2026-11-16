@@ -63,6 +63,7 @@ def read_config(path):
     required = FIELDS | {MeasurementRule.threshold_key_for(operation)}
     if config.keys() - {
             "circuit", "initialization_sigma", "mnis_proposal_covariance", "hscs_search_origin",
+            "mnis_target_fraction",
     } != required:
         raise ValueError(f"{operation} requires an optional circuit block and these fields: {', '.join(sorted(required))}")
     if config["corner"] not in ("TT", "FF", "SS", "FS", "SF"):
@@ -120,6 +121,9 @@ def evaluation_circuit_options(config):
     if "initialization_sigma" in config and (
             type(sigma) not in (int, float) or not math.isfinite(sigma) or sigma <= 0):
         raise ValueError("initialization_sigma must be positive and finite")
+    fraction = config.get("mnis_target_fraction", 0.)
+    if type(fraction) not in (int, float) or not math.isfinite(fraction) or not 0 <= fraction < 1:
+        raise ValueError("mnis_target_fraction must be in [0, 1)")
     for key, choices in (
             ("mnis_proposal_covariance", ("legacy", "target_diagonal")),
             ("hscs_search_origin", ("legacy", "nominal"))):
