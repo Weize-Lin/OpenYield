@@ -1,4 +1,4 @@
-"""Diagnostic entry for original-proposal MNIS for a configured 6T operation."""
+"""Run repository MNIS with legacy or configured proposal settings."""
 import argparse
 import csv
 import json
@@ -11,7 +11,7 @@ import numpy as np
 from scipy.special import logsumexp
 from yield_estimation.evaluation.outcomes import MeasurementRule
 from yield_estimation.evaluation.run import (
-    read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case,
+    read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case, configured_initialization,
     RecordedAccessTestbench, source_revision, PARAMETER_FORMAT, functional_failure_key,
 )
 from yield_estimation.model_lib.MNIS import MNIS, MNISBudgetReached
@@ -69,7 +69,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     options = evaluation_circuit_options(config)
     operation = options["operation"]
     rule = MeasurementRule(operation, config)
-    validate_algorithm_case(options, "mnis")
+    validate_algorithm_case(options, "mnis", config)
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     settings = dict(initial_batch=initial_batch, initial_failures=initial_failures,
@@ -79,7 +79,9 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     (output / "mnis_settings.json").write_text(json.dumps(settings, indent=2))
     (output / "samples.csv").write_text(f"sample,batch,xyce_run,{rule.column},outcome\n")
     revision, dirty = source_revision()
-    summary = dict(config, algorithm="repository_MNIS_original_proposal",
+    implementation = ("repository_MNIS_configured_proposal" if "initialization_sigma" in config
+                      else "repository_MNIS_original_proposal")
+    summary = dict(config, algorithm=implementation,
                    git_revision=revision, git_tracked_files_modified=dirty,
                    budget_basis="algorithm_requests_including_recheck_and_zero_target_draws",
                    config_batch_size_note="MC setting; MNIS uses mnis_settings.json",
@@ -94,10 +96,14 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
             raise RuntimeError("Xyce not found; activate openyield")
         means, target, bench = build_evaluation_case(config, options, output, summary)
         summary["nominal_parameters"] = means.tolist()
+        bounds = configured_initialization(config, target, summary)
         recorder = RecordedAccessTestbench(bench, output, config)
+        variances = None if bounds is None else target.sigma ** 2
+        summary["proposal_covariance"] = "legacy" if variances is None else "target_diagonal"
         algorithm = MNIS(recorder, target, len(means), means, .01, initial_failures,
                          initial_batch, estimation_batch, 13, .24, 1,
-                         seed=config["seed"], IS_bound_on=False, target=options["target"], operation=operation)
+                         seed=config["seed"], IS_bound_on=False, target=options["target"], operation=operation,
+                         initialization_bounds=bounds, proposal_variance=variances)
         algorithm.threshold = rule.threshold
         algorithm.indicator = rule.failures
         os.chdir(output)
@@ -147,7 +153,9 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
                     float(record["log_f"][j]), float(record["log_g"][j])])
     (output / "run_summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False))
     text = [
-        "# 原版提议分布 MNIS 接入诊断", "",
+        "# MNIS 接入诊断", "",
+        f"- 实现：{summary['algorithm']}",
+        f"- 提议分布的方差：{summary.get('proposal_covariance', 'unavailable')}",
         f"- 测评：{operation}，{rule.metric} {rule.operator} {rule.threshold_value:g} {rule.unit} 判为超限",
         f"- 状态：{status}；说明：{error}",
         f"- 代码：{revision}；未提交改动：{dirty}",
@@ -165,7 +173,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
         "underflow表示普通数字表示不了这么小的估计，应看log10；这也不证明估计准确。",
         "samples.csv只列实际仿真；estimation_draws.csv列全部估算抽样，目标工艺范围外的样本不填写电路测量值或判定。",
         "预算按算法请求计费，包括复测和零密度样本；它是实际仿真次数的保守上限，不能称为等实际调用数比较。",
-        "原版公式输出保存在original_estimate；对数核对结果另存，未用新提议分布替换原算法。",
+        "算法内部的估算输出保存在 original_estimate。对数核对使用本轮报告记录的提议分布。",
     ]
     (output / "report.md").write_text("\n".join(text) + "\n", encoding="utf-8")
     print(json.dumps({key: summary[key] for key in ("status", "algorithm_requested_samples",

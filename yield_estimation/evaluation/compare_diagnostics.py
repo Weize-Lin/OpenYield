@@ -13,6 +13,8 @@ def condition_mismatches(left, right):
     threshold = "threshold_mv" if "threshold_mv" in left or "threshold_mv" in right else "threshold_ns"
     if threshold not in left or threshold not in right or left[threshold] != right[threshold]:
         fields.append(threshold)
+    if left.get("initialization_sigma") != right.get("initialization_sigma"):
+        fields.append("initialization_sigma")
     if left.get("resolved_circuit") != right.get("resolved_circuit"):
         fields.append("resolved_circuit")
     return fields
@@ -25,8 +27,9 @@ def compare(mc_dir, mnis_dir, output):
             raise ValueError("Comparison output must be separate from source runs")
     raw = [(d / "run_summary.json").read_bytes() for d in (mc_dir, mnis_dir)]
     mc, mnis = [json.loads(data) for data in raw]
-    if mc.get("algorithm") != "repository_MC" or mnis.get("algorithm") != "repository_MNIS_original_proposal":
-        raise ValueError("Expected configured repository MC and original-proposal MNIS reports")
+    if mc.get("algorithm") != "repository_MC" or mnis.get("algorithm") not in (
+            "repository_MNIS_original_proposal", "repository_MNIS_configured_proposal"):
+        raise ValueError("Expected custom-sampling repository MC and repository MNIS reports")
     if mc.get("status") != "complete" or mnis.get("status") not in ("budget_stopped", "stopped"):
         raise ValueError("Only completed diagnostic runs can be compared; inspect failed reports separately")
     mismatches = condition_mismatches(mc, mnis)
@@ -57,7 +60,8 @@ def compare(mc_dir, mnis_dir, output):
         mc=dict(budget=mc["budget"], requested_samples=mc_calls, returned_samples=mc["returned_rows"],
                 failure_count=mc["failure_count"], pfail_estimate=mc["pfail_estimate"],
                 interval=mc["pfail_interval"]),
-        mnis=dict(budget=mnis["budget"], algorithm_requests=mnis["algorithm_requested_samples"],
+        mnis=dict(implementation=mnis["algorithm"], budget=mnis["budget"],
+                  algorithm_requests=mnis["algorithm_requested_samples"],
                   simulator_submitted_samples=mnis_calls,
                   simulator_returned_samples=mnis["simulator_returned_samples"],
                   zero_target_samples=mnis["zero_target_samples"],
@@ -65,7 +69,8 @@ def compare(mc_dir, mnis_dir, output):
                   numeric_status=numerical, displayed_estimate=mnis_display),
     )
     report = [
-        "# MC与原版提议分布MNIS的诊断对照", "",
+        "# MC 与 MNIS 的诊断对照", "",
+        f"MNIS 实现：{mnis['algorithm']}。", "",
         "此表检查接入结果，不产生排名。门限和预算若用于调试，不能当成正式设计指标。", "",
         "| 项目 | MC | MNIS |", "| --- | --- | --- |",
         f"| 配置预算名额 | {mc['budget']} | {mnis['budget']} |",
@@ -76,7 +81,7 @@ def compare(mc_dir, mnis_dir, output):
         f"| 仿真代码提交 | {mc.get('git_revision')} | {mnis.get('git_revision')} |", "",
         f"固定工况不同的字段：{mismatches or '无'}。",
         f"检查提示：{', '.join(warnings)}。", "",
-        "MC按目标工艺直接抽样；MNIS按原版提议分布抽样，再用权重估算，不能直接拿它的失效条数相除。",
+        "MC按目标工艺直接抽样；MNIS按报告标明的提议分布抽样，再用权重估算，不能直接拿它的失效条数相除。",
         "MNIS预算含初始化、复测、估算和零目标密度样本；表中另列实际仿真，不能称为等实际仿真次数比较。",
         "同一个seed不表示两种算法用了相同样本。小样本MC结果仅供诊断，不是精确真值。",
         "若MNIS下溢，不能把输出的零理解为没有电路失效，也不能仅凭对数值极小就认定估计准确。",

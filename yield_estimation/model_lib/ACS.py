@@ -1,3 +1,4 @@
+from ._initialization_bounds import resolve_initialization_bounds
 import os
 import time
 from pathlib import Path
@@ -18,7 +19,7 @@ class ACS(RecordedAlgorithm):
         576: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_bound_576.txt',
         2304: Path(__file__).resolve().parents[1] / 'bound_lib' / 'model_bound_2304.txt'
     }
-    def __init__(self,mc_testbench, feature_num, IS_bound_num, IS_bound_on, f_norm, g_cal_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, seed):
+    def __init__(self,mc_testbench, feature_num, IS_bound_num, IS_bound_on, f_norm, g_cal_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, seed, *, initialization_bounds=None):
         """
             Initialize an instance of the ACS class.
             :param f_norm: The original Monte Carlo distribution object (typically Gaussian), used to generate initial samples.
@@ -37,10 +38,7 @@ class ACS(RecordedAlgorithm):
         self.IS_bound_num = IS_bound_num
         self.IS_bound_on = IS_bound_on
         seed_set(seed)
-        if self.feature_num not in self._BOUND_FILE_MAP:
-            raise ValueError(f"不支持的特征数量: {self.feature_num}，仅支持 {list(self._BOUND_FILE_MAP.keys())}")
-        bound_file_path = self._BOUND_FILE_MAP[self.feature_num]
-        bounds = np.loadtxt(bound_file_path, dtype=np.float64)
+        bounds = resolve_initialization_bounds(feature_num, initialization_bounds, self._BOUND_FILE_MAP)
         self.up_bounds = bounds[0, :]  
         self.low_bounds = bounds[1, :] 
         self.bound = np.vstack([self.low_bounds, self.up_bounds])

@@ -1,3 +1,4 @@
+from ._initialization_bounds import resolve_initialization_bounds
 import numpy as np  
 from pathlib import Path
 import torch.nn as nn
@@ -19,11 +20,12 @@ class HSCS(RecordedAlgorithm, nn.Module):
     def __init__(self, f_norm, mc_testbench,means, feature_num, g_var_num=1, bound_num=1, IS_sample_num=100,
                        initial_failed_data_num=50, sample_num_each_sphere=1000,
                        max_gen_times=10, ratio=0.1, FOM_num=10, find_MN_sam_num=100, seed=0,
-                       IS_bound_num=1, IS_bound_on=True, g_cal_var=1, *, num_rows=None, num_cols=None):
+                       IS_bound_num=1, IS_bound_on=True, g_cal_var=1, *, num_rows=None, num_cols=None, initialization_bounds=None):
         super(HSCS, self).__init__()
         self.num_rows, self.num_cols = num_rows, num_cols
         self.feature_num = feature_num
         self.means = means
+        self.search_from_nominal = initialization_bounds is not None
         self.mc_testbench = mc_testbench
         self.x_samples = None
         self.y_samples = None
@@ -35,10 +37,7 @@ class HSCS(RecordedAlgorithm, nn.Module):
                                sample_num_each_sphere, max_gen_times, ratio, FOM_num, find_MN_sam_num
         self.IS_bound_num, self.IS_bound_on, self.g_cal_var = IS_bound_num, IS_bound_on, g_cal_var
         seed_set(seed)
-        if self.feature_num not in self._BOUND_FILE_MAP:
-            raise ValueError(f"不支持的特征数量: {self.feature_num}，仅支持 {list(self._BOUND_FILE_MAP.keys())}")
-        bound_file_path = self._BOUND_FILE_MAP[self.feature_num]
-        bounds = np.loadtxt(bound_file_path, dtype=np.float64)
+        bounds = resolve_initialization_bounds(feature_num, initialization_bounds, self._BOUND_FILE_MAP)
         self.up_bounds = bounds[0, :]  
         self.low_bounds = bounds[1, :] 
         self.bound = np.vstack([self.low_bounds, self.up_bounds])
@@ -77,6 +76,8 @@ class HSCS(RecordedAlgorithm, nn.Module):
 
         else:  # sample on sphere with particular R and dirction
             centroid = radius * direction
+            if self.search_from_nominal:
+                centroid = self.means + centroid
             total_bounds = self.up_bounds - self.low_bounds
             up_bound = centroid + total_bounds * 0.1
             low_bound = centroid - total_bounds * 0.1
@@ -86,6 +87,12 @@ class HSCS(RecordedAlgorithm, nn.Module):
                 up_bound[(up_bound > self.up_bounds)] = self.up_bounds[(up_bound > self.up_bounds).reshape([-1])] # reshape -1 to handle the size
             if (low_bound < self.low_bounds).any() == True:
                 low_bound[(low_bound < self.low_bounds)] = self.low_bounds[(low_bound < self.low_bounds).reshape([-1])]
+            if self.search_from_nominal:
+                # A search point can sit beyond one face of the box. Move it
+                # to that face and sample a one-sided neighbourhood.
+                clipped = np.clip(centroid, self.low_bounds, self.up_bounds)
+                low_bound = np.maximum(self.low_bounds, clipped - total_bounds * .1)
+                up_bound = np.minimum(self.up_bounds, clipped + total_bounds * .1)
             x = np.random.uniform(low=low_bound, high=up_bound, size=[num, self.feature_num])
 
             return x
@@ -254,6 +261,8 @@ class HSCS(RecordedAlgorithm, nn.Module):
 
             # save min-norm point R in this cluster
             min_norm_point = R * self.normr(centroids[j, :], verticalize=False)
+            if self.search_from_nominal:
+                min_norm_point = np.clip(self.means + min_norm_point, self.low_bounds, self.up_bounds)
             min_norm_points.append(min_norm_point)
 
         # turn list into array
@@ -369,7 +378,8 @@ class HSCS(RecordedAlgorithm, nn.Module):
         # run WS K-means
         self.k = round(np.sqrt(self.x_samples.shape[0]))
         print(f"# k: {self.k}") # cluster num
-        self.x_labels, self.centroids, self.k = self.weighted_sphere_Kmeans(self.x_samples, self.k, self.weights)
+        cluster_points = self.x_samples - self.means if self.search_from_nominal else self.x_samples
+        self.x_labels, self.centroids, self.k = self.weighted_sphere_Kmeans(cluster_points, self.k, self.weights)
 
         # get min norm points
         self.phase = "write_search" if self.operation == "read" else "failure_region_search"

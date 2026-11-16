@@ -13,6 +13,28 @@ from typing import Any
 
 MC_PARAMS = ("vth0", "u0", "voff")
 
+# Row-major parameter tables use this bitcell topology order.
+BITCELL_PROCESS_ROLES = {
+    "SRAM_6T_CELL": (
+        ("PGL", "pg"), ("PGR", "pg"), ("PDL", "pd"),
+        ("PUL", "pu"), ("PDR", "pd"), ("PUR", "pu"),
+    ),
+    "SRAM_10T_CELL": (
+        ("PGL", "pg"), ("PGR", "pg"), ("PDL1", "pd"), ("PDL2", "pd"),
+        ("PUL", "pu"), ("PDR1", "pd"), ("PDR2", "pd"), ("PUR", "pu"),
+        ("FD_L", "fd"), ("FD_R", "fd"),
+    ),
+}
+
+
+def bitcell_process_devices(cell, cell_type):
+    """Return (device, model card) pairs in the Xyce sample table order."""
+    nmos = cell.nmos_model.value
+    models = {"pd": nmos[0], "pg": nmos[1], "pu": cell.pmos_model.value}
+    if cell_type == "SRAM_10T_CELL":
+        models["fd"] = nmos[2]
+    return tuple((device, models[role]) for device, role in BITCELL_PROCESS_ROLES[cell_type])
+
 
 class SpiceParseError(RuntimeError):
     """Raised when the generated deck cannot be specialized safely."""

@@ -200,14 +200,15 @@ def build_testbench(config: SRAM_CONFIG, sim_path: str, *,
                     variation_mode: str = VARIATION_MODE,
                     mc_seed: Optional[int] = MC_SEED,
                     real_cell_mode: Optional[int] = REAL_CELL_MODE,
-                    w_rc: bool = W_RC) -> Sram6TCoreMcTestbench:
+                    w_rc: bool = W_RC,
+                    vth_std: float = .05) -> Sram6TCoreMcTestbench:
     """Build the Monte Carlo testbench with the per-device default made explicit."""
     return Sram6TCoreMcTestbench(
         config,
         sram_cell_type=config.global_config.sram_cell_type,
         w_rc=w_rc,
         pi_res=100 @ u_Ohm, pi_cap=0.001 @ u_pF,
-        vth_std=0.05,  # relative sigma of vth0/u0/voff for shared and per-device modes
+        vth_std=vth_std,  # relative sigma of vth0/u0/voff for shared and per-device modes
         mc=variation_mode in ("shared", "per-device"),
         custom_mc=variation_mode == "custom",
         variation_mode=variation_mode,

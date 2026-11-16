@@ -3,7 +3,7 @@ import hashlib
 import json
 import shutil
 from pathlib import Path
-from sram_compiler.per_device_mc.netlist import specialize_netlist
+from sram_compiler.per_device_mc.netlist import MC_PARAMS, bitcell_process_devices, specialize_netlist
 from PySpice.Unit import u_V, u_ns, u_Ohm, u_pF, u_A, u_mA 
 # Only for yield analysis
 from utils import (  # type: ignore
@@ -1052,7 +1052,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         4. 若传入的是单 cell 参数（每行 18 或 30 个值），
         对于多 cell 阵列会自动复制到所有 active cell
         """
-        param_names = ['vth0', 'u0', 'voff']
+        param_names = MC_PARAMS
         self.table_head = '.data table\n+ '
         table_content = '\n'
         num_params = 0
@@ -1060,11 +1060,6 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
         # --- 1. 根据 Cell 类型配置差异化参数 ---
         if self.sram_cell_type == 'SRAM_10T_CELL':
             cell_config = self.sram_config.sram_10t_cell
-            mos_names = ['PGL', 'PGR', 'PDL1', 'PDL2', 'PUL',
-                        'PDR1', 'PDR2', 'PUR', 'FD_L', 'FD_R']
-            pmos_set = {'PUL', 'PUR'}
-            pg_nmos_set = {'PGL', 'PGR'}
-            fd_nmos_set = {'FD_L', 'FD_R'}
 
             # 默认调试数据：1组 10T 参数，注意这里只是 1 行
             default_vars_list = [[
@@ -1077,10 +1072,6 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
             ]]
         else:
             cell_config = self.sram_config.sram_6t_cell
-            mos_names = ['PGL', 'PGR', 'PDL', 'PUL', 'PDR', 'PUR']
-            pmos_set = {'PUL', 'PUR'}
-            pg_nmos_set = {'PGL', 'PGR'}
-            fd_nmos_set = set()
 
             # 默认调试数据：1组 6T 参数，注意这里只是 1 行
             default_vars_list = [[
@@ -1092,22 +1083,15 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 -0.3842, 0.02, -0.126
             ]]
 
+        devices = bitcell_process_devices(cell_config, self.sram_cell_type)
+
         # --- 2. 统一生成参数表头 ---
         for row in range(self.num_rows):
             for col in range(self.num_cols):
                 if ('snm' in operation) and (row > 0 or col > 0):
                     continue
 
-                for mos in mos_names:
-                    if mos in pmos_set:
-                        model_val = cell_config.pmos_model.value
-                    elif mos in pg_nmos_set:
-                        model_val = cell_config.nmos_model.value[1]  # PG
-                    elif mos in fd_nmos_set:
-                        model_val = cell_config.nmos_model.value[2]  # FD
-                    else:
-                        model_val = cell_config.nmos_model.value[0]  # PD
-
+                for mos, model_val in devices:
                     for param in param_names:
                         param_def = f'{param}_{model_val}_{mos}_{row:d}_{col:d}'
                         circuit.raw_spice += f'.param {param_def}=0.0\n'
@@ -1130,7 +1114,7 @@ class Sram6TCoreMcTestbench(Sram6TCoreTestbench):
                 f'vars row mismatch: expected num_mc={num_mc}, got {vars.shape[0]}'
             )
 
-        params_per_cell = len(mos_names) * len(param_names)
+        params_per_cell = len(devices) * len(param_names)
 
         if 'snm' in operation:
             active_cell_num = 1

@@ -1,4 +1,4 @@
-"""Evaluate direct Monte Carlo for a configured 6T SRAM operation."""
+"""Evaluate direct Monte Carlo for a configured SRAM operation."""
 from __future__ import annotations
 
 import argparse
@@ -18,7 +18,10 @@ from scipy.stats import truncnorm, norm
 from scipy.special import log_ndtr
 
 from main_sram import build_testbench, circuit_defaults, configure_circuit, normalize_circuit_options
-from sram_compiler.per_device_mc.netlist import MC_PARAMS, parse_spice_models
+from sram_compiler.equivalent_modeling import resolve_equivalent
+from sram_compiler.per_device_mc.netlist import (
+    BITCELL_PROCESS_ROLES, MC_PARAMS, bitcell_process_devices, parse_spice_models,
+)
 from sram_compiler.version import VERSION
 from yield_estimation.model_lib.MC import MC
 from yield_estimation.evaluation.outcomes import (
@@ -35,6 +38,10 @@ CASE_OPERATIONS = {
     WRITE_CASE: "write",
     "sram_6t_read_write": "read&write",
     **{f"sram_6t_{operation}": operation for operation in MeasurementRule.SNM_OPERATIONS},
+    "sram_10t_read": "read",
+    "sram_10t_write": "write",
+    "sram_10t_read_write": "read&write",
+    **{f"sram_10t_{operation}": operation for operation in MeasurementRule.SNM_OPERATIONS},
 }
 ROWS, COLS = 3, 2
 TARGET = (1, 1)
@@ -54,12 +61,10 @@ def read_config(path):
         raise ValueError(f"Supported cases: {', '.join(CASE_OPERATIONS)}")
     operation = CASE_OPERATIONS[case]
     required = FIELDS | {MeasurementRule.threshold_key_for(operation)}
-    if config.keys() - {"circuit"} != required:
+    if config.keys() - {"circuit", "initialization_sigma"} != required:
         raise ValueError(f"{operation} requires an optional circuit block and these fields: {', '.join(sorted(required))}")
     if config["corner"] not in ("TT", "FF", "SS", "FS", "SF"):
         raise ValueError("corner must be TT, FF, SS, FS or SF")
-    if config["u0_positive"] is not True:
-        raise ValueError("u0_positive must be true for the supported process distribution")
     for key in ("vdd", "temperature_c", "relative_std"):
         value = config[key]
         if type(value) not in (int, float) or not math.isfinite(value):
@@ -74,8 +79,9 @@ def read_config(path):
     for key in ("budget", "batch_size"):
         if type(config[key]) is not int or config[key] < 1:
             raise ValueError(f"{key} must be a positive integer")
+    options = evaluation_circuit_options(config)
     if "circuit" in config or config["case"] != CASE:
-        config["circuit"] = evaluation_circuit_options(config)
+        config["circuit"] = options
     return config
 
 
@@ -83,69 +89,133 @@ def evaluation_circuit_options(config):
     supplied = config.get("circuit", {})
     if not isinstance(supplied, dict):
         raise ValueError("circuit must be a JSON object")
-    operation = CASE_OPERATIONS[config["case"]]
+    case = config["case"]
+    operation = CASE_OPERATIONS[case]
+    cell_type = "SRAM_10T_CELL" if case.startswith("sram_10t_") else "SRAM_6T_CELL"
     defaults = circuit_defaults()
     default_target = list(TARGET) if config["case"] == CASE else None
     array = [1, 1, False] if operation in MeasurementRule.SNM_OPERATIONS else [ROWS, COLS, False]
-    defaults.update(array=array, target=default_target, cell_type="SRAM_6T_CELL",
+    defaults.update(array=array, target=default_target, cell_type=cell_type,
                     cell_6t=None, operation=operation, variation_mode="custom",
                     real_cell_mode=0, corner=config["corner"], vdd=config["vdd"],
                     temperature_c=config["temperature_c"])
+    if supplied.get("cell_type") is None:
+        supplied = {**supplied, "cell_type": cell_type}
     options = normalize_circuit_options(supplied, defaults)
-    for key in ("corner", "vdd", "temperature_c"):
-        if options[key] != config[key]:
+    for key in ("vdd", "temperature_c"):
+        if options[key] is None:
+            options[key] = config[key]
+        elif options[key] != config[key]:
             raise ValueError(f"Top-level {key} disagrees with circuit.{key}")
     if config["case"] == CASE and (options["array"] != [ROWS, COLS, False]
                                    or options["target"] != list(TARGET)):
         raise ValueError(f"Use case {CONFIGURABLE_CASE} to change the array or target")
-    for key, value in (("operation", operation), ("cell_type", "SRAM_6T_CELL"),
-                       ("variation_mode", "custom"), ("real_cell_mode", 0)):
+    for key, value in (("operation", operation), ("cell_type", cell_type)):
         if options[key] != value:
             raise ValueError(f"Current yield evaluation requires circuit.{key}={value!r}")
-    if operation in MeasurementRule.SNM_OPERATIONS and options["array"] != [1, 1, False]:
-        raise ValueError("SNM simulates a single cell; set circuit.array to [1, 1, false]")
+    mode = options["variation_mode"]
+    sigma = config.get("initialization_sigma")
+    if "initialization_sigma" in config and (
+            type(sigma) not in (int, float) or not math.isfinite(sigma) or sigma <= 0):
+        raise ValueError("initialization_sigma must be positive and finite")
+    if options["real_cell_mode"] is None:
+        inherited = configure_circuit(options).global_config.equivalent
+        options["real_cell_mode"] = resolve_equivalent(inherited).mode
+    if operation in MeasurementRule.SNM_OPERATIONS:
+        if options["array"] != [1, 1, False]:
+            raise ValueError("SNM simulates a single cell; set circuit.array to [1, 1, false]")
+        if options["real_cell_mode"] != 0:
+            raise ValueError("SNM has no equivalent array cells; choose real_cell_mode 0")
+    positive = config.get("u0_positive", mode == "custom")
+    if (type(positive) is not bool or mode == "custom" and not positive
+            or mode in ("shared", "per-device") and positive):
+        raise ValueError("Set u0_positive to true for custom and false for Xyce random sampling")
+    if mode == "nominal" and config["budget"] != 1:
+        raise ValueError("Nominal is a deterministic check; set budget to 1")
+    if mode in ("shared", "per-device"):
+        if mode == "shared" and config["budget"] < 2:
+            raise ValueError("Xyce treats shared with one sample as nominal; choose budget >= 2")
+        if config["batch_size"] < config["budget"]:
+            raise ValueError("Native Xyce sampling needs one batch; set batch_size >= budget")
+        if not 1 <= config["seed"] <= 2**31 - 1:
+            raise ValueError("Native Xyce seeds must be positive signed 32-bit integers")
     return options
 
 
 def access_case_dimensions(options):
     rows, cols, _ = options["array"]
-    return rows * cols * 6 * len(MC_PARAMS)
+    return rows * cols * len(BITCELL_PROCESS_ROLES[options["cell_type"]]) * len(MC_PARAMS)
 
 
-def validate_algorithm_case(options, algorithm):
+def validate_algorithm_case(options, algorithm, config):
+    if algorithm != "mc" and options["variation_mode"] != "custom":
+        raise ValueError("Choose MC for simulator-managed sampling; importance sampling needs an explicit process density")
+    if algorithm != "mc" and options["real_cell_mode"] != 0:
+        raise ValueError("Approximate array modes currently use MC; choose real_cell_mode 0 for importance sampling")
+    if algorithm == "mc" or "initialization_sigma" in config:
+        return
     dimensions = access_case_dimensions(options)
-    # The four importance samplers initialize from the checked-in box bounds.
-    # MNIS also uses dimension-specific proposal variances for these sizes.
-    if algorithm != "mc" and dimensions not in (18, 108, 576):
-        raise ValueError(f"{algorithm.upper()} does not support {dimensions} parameters; "
-                         "available dimensions: 18, 108, 576")
+    # Legacy bounds and MNIS proposal settings were supplied for 6T only.
+    if options["cell_type"] != "SRAM_6T_CELL" or dimensions not in (18, 108, 576):
+        raise ValueError(f"{algorithm.upper()} has no legacy bounds for {dimensions} parameters in "
+                         f"{options['cell_type']}. Set initialization_sigma to opt into a configured box.")
+
+
+def configured_initialization(config, process, summary):
+    width = config.get("initialization_sigma")
+    if width is None:
+        summary["initialization"] = {"method": "legacy_bound_file"}
+        return None
+    upper = process.means + width * process.sigma
+    lower = process.means - width * process.sigma
+    # Match the positive-mobility domain of the configured target process.
+    lower[1::3] = np.maximum(lower[1::3], np.finfo(float).tiny)
+    bounds = np.stack((upper, lower))
+    if not np.isfinite(bounds).all() or not (lower < upper).all():
+        raise ValueError("initialization_sigma produced an invalid search box")
+    summary["initialization"] = {"method": "box_about_nominal", "sigma": width,
+                                  "lower": lower.tolist(), "upper": upper.tolist()}
+    return bounds
 
 
 def build_evaluation_case(config, options, output, summary):
     circuit = configure_circuit(options)
     model = Path(getattr(circuit.global_config, "pdk_path_" + options["corner"]))
     rows, cols, _ = options["array"]
-    means = nominal_parameters(circuit.sram_6t_cell, model, rows * cols)
-    process = IndependentProcess(means, config["relative_std"], config["seed"])
-    testbench = build_testbench(circuit, str(output), variation_mode=options["variation_mode"],
-                                mc_seed=None, real_cell_mode=options["real_cell_mode"],
-                                w_rc=options["w_rc"])
+    cell_type = options["cell_type"]
+    cell = circuit.sram_10t_cell if cell_type == "SRAM_10T_CELL" else circuit.sram_6t_cell
+    devices = BITCELL_PROCESS_ROLES[cell_type]
+    mode = options["variation_mode"]
+    means = nominal_parameters(cell, model, rows * cols, cell_type=cell_type)
+    process = IndependentProcess(means, config["relative_std"], config["seed"]) if mode == "custom" else None
+    testbench = build_testbench(circuit, str(output), variation_mode=mode,
+                                mc_seed=config["seed"] if mode in ("shared", "per-device") else None,
+                                real_cell_mode=options["real_cell_mode"], w_rc=options["w_rc"],
+                                vth_std=config["relative_std"])
+    summary.update(sampling_source={
+        "custom": "numpy_independent_positive_u0",
+        "nominal": "deterministic_nominal",
+        "shared": "xyce_model_card_shared_lhs",
+        "per-device": "xyce_per_retained_mos_lhs",
+    }[mode], sample_parameters_saved=mode == "custom",
+        approximation=options["real_cell_mode"] != 0,
+        bitcell_table_parameters=means.size if mode == "custom" else None)
     summary.update(resolved_circuit=options, rows=rows, cols=cols, target=options["target"],
-                   dimensions=means.size, model_path=str(model),
+                   dimensions=means.size if mode == "custom" else None, model_path=str(model),
                    model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
-                   nominal_parameters_per_cell=means[:6 * len(MC_PARAMS)].tolist(),
+                   cell_type=cell_type,
+                   nominal_parameters_per_cell=means[:len(devices) * len(MC_PARAMS)].tolist(),
+                   bitcell_parameter_order=[f"{name}.{param}"
+                                            for name, _ in devices for param in MC_PARAMS],
                    driver_sizes=testbench.driver_sizes.to_dict(), timing=testbench.timing_config.to_dict(),
                    interconnect=testbench.interconnect.to_dict(), equivalent=testbench.equivalent.to_dict())
     return means, process, testbench
 
 
-def nominal_parameters(cell, model_path, cells=ROWS * COLS):
+def nominal_parameters(cell, model_path, cells=ROWS * COLS, *, cell_type="SRAM_6T_CELL"):
     cards = parse_spice_models(model_path)
-    pd, pg = cell.nmos_model.value
-    pu = cell.pmos_model.value
-    # This is the row/column order of gen_process_params in the 6T testbench.
-    one_cell = [cards[name]["parameters"][parameter]
-                for name in (pg, pg, pd, pu, pd, pu) for parameter in MC_PARAMS]
+    one_cell = [cards[model]["parameters"][parameter]
+                for _, model in bitcell_process_devices(cell, cell_type) for parameter in MC_PARAMS]
     means = np.tile(np.asarray(one_cell, dtype=float), cells)
     if not np.isfinite(means).all() or (means[1::3] <= 0).any():
         raise ValueError("Model cards must have finite nominal parameters and positive u0")
@@ -221,15 +291,20 @@ class RecordedAccessTestbench:
             raise ValueError(f"The evaluation requires {self.operation} at configured cell {self.target}")
         if self.submitted + mc_runs > self.budget:
             raise RuntimeError(f"Budget exceeded: {self.submitted} + {mc_runs} > {self.budget}")
-        samples = np.asarray(vars)
-        if (samples.shape != (mc_runs, self.dimensions)
-                or not np.isfinite(samples).all() or (samples[:, 1::3] <= 0).any()):
-            raise ValueError("Sample parameters must be finite with positive u0 and the expected shape")
+        samples = None
+        if self.options["variation_mode"] == "custom":
+            samples = np.asarray(vars)
+            if (samples.shape != (mc_runs, self.dimensions)
+                    or not np.isfinite(samples).all() or (samples[:, 1::3] <= 0).any()):
+                raise ValueError("Sample parameters must be finite with positive u0 and the expected shape")
+        elif vars is not None:
+            raise ValueError("Simulator-managed sampling does not accept an external parameter table")
 
         first = self.submitted
         batch = self.output / f"batch_{first:04d}"
         batch.mkdir()
-        np.save(batch / "samples.npy", samples)
+        if samples is not None:
+            np.save(batch / "samples.npy", samples)
         self.testbench.sim_path = str(batch)
         self.submitted += mc_runs
         print(f"MC: submitted {self.submitted}/{self.budget} samples", flush=True)
@@ -288,14 +363,19 @@ def wilson_interval(failures, samples):
 def write_report(output, summary):
     operation = summary.get("operation", "read")
     rule = MeasurementRule(operation, summary)
+    cell_label = "10T" if summary.get("cell_type") == "SRAM_10T_CELL" else "6T"
     functional = summary.get(functional_failure_key(operation), 0)
+    mode = summary.get("variation_mode", "custom")
+    title = "Deterministic" if mode == "nominal" else "Monte Carlo"
     text = [
-        f"# Monte Carlo SRAM {operation} evaluation", "",
-        f"- Circuit: {summary['rows']}×{summary['cols']} 6T SRAM, target cell {summary['target']}, OpenYield {VERSION}",
+        f"# {title} SRAM {operation} evaluation", "",
+        f"- Circuit: {summary['rows']}×{summary['cols']} {cell_label} SRAM, target cell {summary['target']}, OpenYield {VERSION}",
         f"- Conditions: {summary['corner']}, {summary['vdd']} V, {summary['temperature_c']} °C",
-        f"- Process: {summary['relative_std']:.2%} relative Gaussian scale, conditioned on positive u0",
+        f"- Sampling: {summary.get('sampling_source', mode)}",
+        *([] if mode == "nominal" else [f"- Relative process spread: {summary['relative_std']:.2%}"]),
+        *([] if not summary.get("approximation") else ["- Equivalent load model; unused cells are approximated."]),
         f"- Measured {rule.metric}. Failure threshold: value {rule.operator} {rule.threshold_value:g} {rule.unit}",
-        f"- Seed: {summary['seed']}",
+        *([] if mode == "nominal" else [f"- Seed: {summary['seed']}"]),
         f"- Revision: {summary['git_revision'] or 'unavailable'}",
         f"- Requested: {summary['requested_samples']} / {summary['budget']}",
         f"- Classified: {summary['returned_rows']}",
@@ -304,16 +384,21 @@ def write_report(output, summary):
         *([] if rule.is_snm else [f"- Timing failures: {summary['timing_failures']}"]),
         f"- Unclassified: {summary['unclassified_samples']}", "",
     ]
-    if summary["pfail_estimate"] is None:
+    if summary["status"] != "complete":
         text.extend(["The run is incomplete.", "", summary["error"]])
+    elif mode == "nominal":
+        text.append(f"Nominal result: **{summary['nominal_outcome']}**. This evaluates one deterministic sample.")
     else:
-        low, high = summary["pfail_interval"]
         text.extend([
-            f"Estimated failure probability: **{summary['pfail_estimate']:.4%}** "
+            f"Estimated failure fraction: **{summary['pfail_estimate']:.4%}** "
             f"({summary['failure_count']}/{summary['returned_rows']}).",
-            f"95% Wilson interval: {low:.4%}–{high:.4%}.", "",
-            f"For this case the result applies to the selected cell and {operation} operation.",
         ])
+        if summary["pfail_interval"] is not None:
+            low, high = summary["pfail_interval"]
+            text.append(f"95% Wilson interval: {low:.4%}–{high:.4%}.")
+        else:
+            text.append("Xyce used Latin-hypercube sampling. An independent-Bernoulli interval is not reported.")
+        text.append(f"For this case the result applies to the selected cell and {operation} operation.")
     (output / "report.md").write_text("\n".join(text) + "\n", encoding="utf-8")
 
 
@@ -340,6 +425,7 @@ def functional_failure_key(operation):
 def run_evaluation(config, output):
     options = evaluation_circuit_options(config)
     operation = options["operation"]
+    mode = options["variation_mode"]
     rule = MeasurementRule(operation, config)
     output.mkdir(parents=True, exist_ok=False)
     (output / "run_config.json").write_text(
@@ -350,11 +436,13 @@ def run_evaluation(config, output):
     )
     revision, modified = source_revision()
     summary = dict(
-        config, algorithm="repository_MC", compiler_version=VERSION,
-        operation=operation, **rule.metadata(),
+        config, algorithm={"custom": "repository_MC", "nominal": "xyce_nominal",
+                           "shared": "xyce_shared_lhs", "per-device": "xyce_per_device_lhs"}[mode],
+        compiler_version=VERSION,
+        operation=operation, cell_type=options["cell_type"], **rule.metadata(),
         git_revision=revision, git_tracked_files_modified=modified,
         rows=options["array"][0], cols=options["array"][1], target=options["target"],
-        process_param_format=PARAMETER_FORMAT, variation_mode="custom",
+        process_param_format=PARAMETER_FORMAT, variation_mode=mode,
     )
     if not rule.is_snm:
         summary["delay_metric"] = rule.metric
@@ -368,20 +456,14 @@ def run_evaluation(config, output):
         summary["xyce"] = xyce
         means, process, testbench = build_evaluation_case(config, options, output, summary)
         recorder = RecordedAccessTestbench(testbench, output, config)
-        algorithm = MC(
-            f_norm=process, mc_testbench=recorder, means=means, feature_num=means.size,
-            IS_bound_num=1, initial_num=config["batch_size"], sample_num=config["batch_size"],
-            seed=config["seed"], target=options["target"], use_legacy_bounds=False, operation=operation,
-        )
-        algorithm.threshold = rule.threshold
-        algorithm.indicator = rule.failures
-        os.chdir(output)
-        estimates, _ = algorithm.start_estimate(max_num=config["budget"], fixed_budget=True)
-        failures = recorder.functional_failures + recorder.timing_failures + recorder.margin_failures
-        if recorder.returned != config["budget"] or not math.isclose(
-            estimates[-1], failures / recorder.returned,
-        ):
-            raise RuntimeError("MC estimate and recorded outcomes are inconsistent")
+        if mode != "custom":
+            row, col = options["target"]
+            recorder.run_mc_simulation(operation=operation, target_row=row, target_col=col,
+                                       mc_runs=config["budget"], vars=None)
+        else:
+            _run_custom_mc(config, options, rule, means, process, recorder, output)
+        if recorder.returned != config["budget"]:
+            raise RuntimeError("Observed sample count does not match the requested budget")
     except KeyboardInterrupt:
         error = "KeyboardInterrupt: evaluation interrupted"
     except Exception as exc:
@@ -401,9 +483,11 @@ def run_evaluation(config, output):
         requested_samples=submitted, returned_rows=returned,
         unclassified_samples=submitted - returned, passed_samples=returned - failures,
         timing_failures=timing, failure_count=failures,
-        pfail_estimate=failures / returned if complete else None,
-        pfail_interval=wilson_interval(failures, returned) if complete else None,
+        pfail_estimate=failures / returned if complete and mode != "nominal" else None,
+        pfail_interval=wilson_interval(failures, returned) if complete and mode == "custom" else None,
     )
+    if mode == "nominal":
+        summary["nominal_outcome"] = ("failure" if failures else "pass") if complete else "unclassified"
     if rule.is_snm:
         summary["margin_failures"] = margin
     else:
@@ -419,6 +503,24 @@ def run_evaluation(config, output):
     if error is not None:
         print(error, file=sys.stderr)
     return 0 if complete else 1
+
+
+def _run_custom_mc(config, options, rule, means, process, recorder, output):
+    algorithm = MC(
+        f_norm=process, mc_testbench=recorder, means=means, feature_num=means.size,
+        IS_bound_num=1, initial_num=config["batch_size"], sample_num=config["batch_size"],
+        seed=config["seed"], target=options["target"], use_legacy_bounds=False,
+        operation=options["operation"],
+    )
+    algorithm.threshold = rule.threshold
+    algorithm.indicator = rule.failures
+    os.chdir(output)
+    estimates, _ = algorithm.start_estimate(max_num=config["budget"], fixed_budget=True)
+    failures = recorder.functional_failures + recorder.timing_failures + recorder.margin_failures
+    if recorder.returned != config["budget"] or not math.isclose(
+        estimates[-1], failures / recorder.returned,
+    ):
+        raise RuntimeError("MC estimate and recorded outcomes are inconsistent")
 
 
 def main():

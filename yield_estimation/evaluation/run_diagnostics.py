@@ -58,7 +58,7 @@ def execute(config_path, output, algorithms, run_xyce=False,
     if options["operation"] == "read" and "hscs" in algorithms and not allow_hscs_mixed_search:
         raise ValueError("HSCS needs explicit --allow-hscs-mixed-search for the read case")
     for algorithm in algorithms:
-        validate_algorithm_case(options, algorithm)
+        validate_algorithm_case(options, algorithm, config)
     print("Circuit: " + json.dumps(options, sort_keys=True), flush=True)
     output = output.resolve()
     if output.exists():

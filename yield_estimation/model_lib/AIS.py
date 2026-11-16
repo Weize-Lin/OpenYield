@@ -1,3 +1,4 @@
+from ._initialization_bounds import resolve_initialization_bounds
 import numpy as np
 import torch
 import pandas as pd
@@ -21,7 +22,7 @@ class AIS(RecordedAlgorithm, nn.Module):
     # Constructor for AIS class, used to initialize an instance
     def __init__(self, f_norm, mc_testbench, IS_bound_num, IS_bound_on, feature_num, g_cal_num=1, origin_sam_bound_num=1, initial_failed_data_num=100,
                        num_generate_each_norm=1, sample_num_each_sphere=50, max_gen_times=10,
-                       FOM_num=10, spherical_presample_radius=0.1, spherical_presample_step=0.1,seed=0):
+                       FOM_num=10, spherical_presample_radius=0.1, spherical_presample_step=0.1,seed=0, *, initialization_bounds=None):
         '''
         g_cal_num: Number of IS samples per Gaussian component in the GMM.
         origin_sam_bound_num: Scaling factor for initial sampling region.
@@ -47,10 +48,7 @@ class AIS(RecordedAlgorithm, nn.Module):
         num_generate_each_norm, sample_num_each_sphere, FOM_num
         self.seed = seed
         seed_set(seed)
-        if self.feature_num not in self._BOUND_FILE_MAP:
-            raise ValueError(f"不支持的特征数量: {self.feature_num}，仅支持 {list(self._BOUND_FILE_MAP.keys())}")
-        bound_file_path = self._BOUND_FILE_MAP[self.feature_num]
-        bounds = np.loadtxt(bound_file_path, dtype=np.float64)
+        bounds = resolve_initialization_bounds(feature_num, initialization_bounds, self._BOUND_FILE_MAP)
         self.up_bounds = bounds[0, :]  
         self.low_bounds = bounds[1, :] 
         self.bound = np.vstack([self.low_bounds, self.up_bounds])

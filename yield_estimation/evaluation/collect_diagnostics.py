@@ -27,7 +27,11 @@ def collect(runs, output):
             returned=s.get('simulator_returned_samples', s.get('returned_rows')),
             auxiliary_writes=s.get('auxiliary_write_submitted',0),
             phase_samples=s.get('phase_samples',{}),
-            numeric_status=s.get('diagnostics',{}).get('numeric_status','direct_MC'),
+            numeric_status=s.get('diagnostics', {}).get('numeric_status', {
+                'nominal': 'deterministic_nominal',
+                'shared': 'xyce_lhs',
+                'per-device': 'xyce_lhs',
+            }.get(s.get('variation_mode'), 'direct_MC')),
             pfail=s.get('pfail_estimate') if completed else None,
             log10_pfail=s.get('log10_pfail') if completed else None,
             warnings=s.get('sampling_diagnostics',{}).get('warnings',[]),

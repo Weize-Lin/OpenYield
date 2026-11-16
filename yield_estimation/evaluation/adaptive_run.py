@@ -10,7 +10,7 @@ import shutil
 import numpy as np
 from yield_estimation.evaluation.outcomes import MeasurementRule
 from yield_estimation.evaluation.run import (
-    read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case,
+    read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case, configured_initialization,
     RecordedAccessTestbench, source_revision, PARAMETER_FORMAT, functional_failure_key,
 )
 from yield_estimation.model_lib.AIS import AIS
@@ -38,7 +38,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
     mixed_search = algorithm_name == "hscs" and operation == "read"
     if mixed_search and not allow_hscs_mixed_search:
         raise ValueError("HSCS uses auxiliary writes to guide read estimation; explicitly allow mixed search")
-    validate_algorithm_case(options, algorithm_name)
+    validate_algorithm_case(options, algorithm_name, config)
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     rows, cols, _ = options["array"]
@@ -71,21 +71,24 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
             raise RuntimeError("Xyce not found; activate openyield")
         means, target, bench = build_evaluation_case(config, options, output, summary)
         summary["nominal_parameters"] = means.tolist()
+        bounds = configured_initialization(config, target, summary)
         recorder_class = RecordedMixedSearchTestbench if mixed_search else RecordedAccessTestbench
         recorder = recorder_class(bench, output, config)
         if algorithm_name == "ais":
             algorithm = AIS(target, recorder, 1, False, len(means),
                             g_cal_num=proposal_variance, initial_failed_data_num=initial_failures,
                             num_generate_each_norm=estimation_batch // initial_failures,
-                            sample_num_each_sphere=initial_batch, seed=config["seed"])
+                            sample_num_each_sphere=initial_batch, seed=config["seed"], initialization_bounds=bounds)
         elif algorithm_name == "acs":
             algorithm = ACS(recorder, len(means), 1, False, target, proposal_variance,
-                            initial_failures, initial_batch, estimation_batch, 10, config["seed"])
+                            initial_failures, initial_batch, estimation_batch, 10, config["seed"],
+                            initialization_bounds=bounds)
         else:
             algorithm = HSCS(target, recorder, means, len(means), g_var_num=proposal_variance,
                 IS_sample_num=estimation_batch, initial_failed_data_num=initial_failures,
                 sample_num_each_sphere=initial_batch, find_MN_sam_num=1, seed=config["seed"],
-                IS_bound_on=False, num_rows=rows, num_cols=cols)
+                IS_bound_on=False, num_rows=rows, num_cols=cols, initialization_bounds=bounds)
+            summary["search_origin"] = "legacy" if bounds is None else "nominal"
         algorithm.read_target = tuple(options["target"])
         algorithm.operation = operation
         algorithm.threshold = rule.threshold

@@ -1,3 +1,4 @@
+from ._initialization_bounds import resolve_initialization_bounds
 import numpy as np
 import time
 import os
@@ -16,20 +17,25 @@ class MNIS():
         576: 'model_bound_576.txt',
         2304: 'model_bound_2304.txt'
     }
-    def __init__(self, mc_testbench, f_norm, feature_num, means, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, g_cal_val, IS_bound_num, seed=0, IS_bound_on=False, *, target=(1, 1), operation="read"):
+    def __init__(self, mc_testbench, f_norm, feature_num, means, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num, g_cal_val, IS_bound_num, seed=0, IS_bound_on=False, *, target=(1, 1), operation="read", initialization_bounds=None, proposal_variance=None):
         self.mc_testbench = mc_testbench
         self.target = tuple(target)
         self.operation = operation
+        self.configured_proposal_variance = (
+            None if proposal_variance is None else np.asarray(proposal_variance, dtype=float)
+        )
+        if self.configured_proposal_variance is not None and (
+                self.configured_proposal_variance.shape != (feature_num,)
+                or not np.isfinite(self.configured_proposal_variance).all()
+                or (self.configured_proposal_variance <= 0).any()):
+            raise ValueError("Configured proposal variance needs one positive finite value per parameter")
         self.feature_num =feature_num
         self.means = means
         self.f_norm, self.g_sam_val, self.initial_fail_num, self.initial_sample_each, self.IS_num, self.FOM_num = f_norm, g_sam_val, initial_fail_num, initial_sample_each, IS_num, FOM_num
         self.seed = seed
         self.IS_bound_num, self.IS_bound_on, self.g_cal_val = IS_bound_num, IS_bound_on, g_cal_val
         seed_set(seed)
-        if self.feature_num not in self._BOUND_FILE_MAP:
-            raise ValueError(f"不支持的特征数量: {self.feature_num}，仅支持 {list(self._BOUND_FILE_MAP.keys())}")
-        bound_file_path = Path(__file__).resolve().parents[1] / 'bound_lib' / self._BOUND_FILE_MAP[self.feature_num]
-        bounds = np.loadtxt(bound_file_path, dtype=np.float64)
+        bounds = resolve_initialization_bounds(feature_num, initialization_bounds, self._BOUND_FILE_MAP)
         self.up_bounds = bounds[0, :]
         self.low_bounds = bounds[1, :]
         self.bound = np.vstack([self.low_bounds, self.up_bounds])
@@ -221,12 +227,16 @@ class MNIS():
         min_index = distances.argmin()
         min_norm = self.x_fail[min_index, :]
         #min_norm = self.x_fail[abs(self.x_fail-means).sum(-1).argmin(), :]## L1 uses the L1 norm (Manhattan distance) to identify the failed sample closest to the origin.
-        if feature_num ==18:
+        if self.configured_proposal_variance is not None:
+            variances = self.configured_proposal_variance
+        elif feature_num ==18:
             variances = np.abs(means) * 0.004
         elif feature_num ==108:
             variances = np.abs(means) * 0.004
         elif feature_num ==576:
             variances = np.abs(means) * 0.048
+        else:
+            raise ValueError("This dimension needs a configured MNIS proposal variance")
         cov_matrix = np.diag(variances)
         g_sam_norm = norm_dist(mu=min_norm, var=cov_matrix)
         g_cal_norm = norm_dist(mu=min_norm, var=cov_matrix)
