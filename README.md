@@ -60,6 +60,10 @@ python -m size_optimization.openyield_v2.run_experiment --dry-run
 
 Legacy importance-sampling estimators are retained in [`yield_estimation/`](yield_estimation/README.md), but they are not a validated V2.2.6 yield workflow. Use `MC_RUNS` in `main_sram.py` for current sampling, and read the [open items](docs/README.md#open-items) before reporting a yield estimate.
 
+### Reproduce a yield comparison
+
+The [6T hold-SNM study](yield_estimation/evaluation/HOLD_SNM_STUDY.md) runs five estimators on the same cell and failure threshold. It includes an independent MC reference, eight seeds per method, and a ledger of the simulator calls charged to each result.
+
 ## Validate changes
 
 ```bash

@@ -1,0 +1,31 @@
+{
+  "case": "sram_6t_hold_snm",
+  "corner": "TT",
+  "vdd": 1,
+  "temperature_c": 27,
+  "relative_std": 0.05,
+  "u0_positive": true,
+  "seed": 9101,
+  "budget": 48,
+  "batch_size": 8,
+  "circuit": {
+    "array": [
+      1,
+      1,
+      false
+    ],
+    "target": [
+      0,
+      0
+    ],
+    "cell_type": "SRAM_6T_CELL",
+    "cell_6t": null,
+    "operation": "hold_snm",
+    "variation_mode": "custom",
+    "real_cell_mode": 0,
+    "w_rc": true,
+    "interconnect_config": null
+  },
+  "threshold_mv": 327.65,
+  "initialization_sigma": 3
+}
