@@ -38,7 +38,7 @@ tests/**/*.py
 tests/*.py
 !tests/test_evaluation_weight_contract.py
 !tests/test_research_experiment.py
-!tests/test_m1_estimation_contract.py
+!tests/test_estimation_contract.py
 !tests/test_adaptive_production_contract.py
 !tests/test_result_analysis.py
 size_optimization/openyield_v2/tests/*.py

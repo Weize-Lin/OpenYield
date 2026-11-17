@@ -1,10 +1,10 @@
-# OpenYield M0 审查与 M1 首次统计验收
+# OpenYield 估计器审查与统计验收
 
 ## 本轮范围
 
 从 `codex/benchmark-oct01` 的 `c276d1a22a0d0460933106eb3754839001a20765` 开始。开工时分支与本地记录的 `origin/codex/benchmark-oct01` 一致，只有 `.vscode/` 未跟踪。对照历史版本 `8bb03ee97a534ab0aff4fd894cc4d6c4ccf08008`。真实 SRAM 数据来自已有目录。新测试用公式生成测量值，在 CPU 上跑；原实验参数、结果和历史代码提交均可原样回查。
 
-## M0 看到了什么
+## 初始实现审查
 
 | 路径 | 当前实现 | 本轮证据与边界 |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ OpenYield 预印本 v2 第 III-B 节的 ACS 名称和正文简述，与其参考
 
 这些组的目标和配置各自固定。正式 Hold 研究的分组代码检查工况、源码、预算和实际返回数，条件不一致会标原因。上述演示和候选不足场景不汇入 Hold 比较。13.867% 是有不确定度的 SRAM 参考值。小样本 MC 即便观察到 0 次失效，仍有抽样误差。身份 `legacy`、`variant`、`reference` 沿用仓库定义，身份、验证程度和某一次参考数值的质量应分别报告。
 
-## M1 确认并修复的两处问题
+## 已确认并修复的两处问题
 
 | 类型 | 位置 | 修复前证据与改法 |
 | --- | --- | --- |
@@ -63,10 +63,10 @@ CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
 CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
   python -m unittest discover -s tests -p 'test_research_experiment.py' -v
 CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
-  python -m unittest discover -s tests -p 'test_m1_estimation_contract.py' -v
+  python -m unittest discover -s tests -p 'test_estimation_contract.py' -v
 ```
 
-实际验收从 `312ef34` 用 `git archive` 导出干净源码，复用已有 `openyield` 环境运行 `python -m unittest discover -s tests -v`。运行时为 Python 3.9.19、NumPy 1.26.4、SciPy 1.13.1、Torch 2.8.0+cpu。没有重新安装依赖。将 Xyce 命令换为记录调用的哨兵，验收后检查该记录文件不存在。真实输出节选见下，完整记录在当日日志与本机 `outputs/m1_clean_source.log`。
+实际验收从 `312ef34` 用 `git archive` 导出干净源码，复用已有 `openyield` 环境运行 `python -m unittest discover -s tests -v`。运行时为 Python 3.9.19、NumPy 1.26.4、SciPy 1.13.1、Torch 2.8.0+cpu。没有重新安装依赖。将 Xyce 命令换为记录调用的哨兵，验收后检查该记录文件不存在。真实输出节选见下，完整命令和输出已归档。
 
 ```text
 Ran 26 tests in 0.875s
@@ -80,6 +80,6 @@ Xyce sentinel: no calls
 
 ## 留到下一阶段的问题
 
-M1 验收停在这里。18 和 108 维的独立解析真值、多失效区、稀有尾部、AIS 与 HSCS 完整路径、ACS 分组方向机制、支持域中止的统计影响，以及不同预算与停止规则均待验证。历史低权重与混合变体的效率也仍需独立实验。
+本次验收的范围到此。18 和 108 维的独立解析真值、多失效区、稀有尾部、AIS 与 HSCS 完整路径、ACS 分组方向机制、支持域中止的统计影响，以及不同预算与停止规则均待验证。历史低权重与混合变体的效率也仍需独立实验。
 
 下一个最小实验可以先沿用同一工艺、同一已保存候选表和固定的完整候选规则。对每个点输出原始距离、标准化距离和目标对数密度，冻结表与选点规则后再考虑抽样。比较两种规则时固定提议方差、混合比例、正式样本数和种子。若同选一个点，记录这个结果。先做离线对照，再另报需要 Xyce 的预算和待回答的问题。

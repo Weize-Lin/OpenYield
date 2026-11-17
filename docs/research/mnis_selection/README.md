@@ -48,7 +48,7 @@
 ```bash
 conda activate openyield
 PYTHONPATH="$PWD" python docs/research/mnis_selection/replay.py \
-  --output-dir outputs/m2_candidate_replay
+  --output-dir outputs/candidate_selection_replay
 ```
 
 `candidate_metrics.csv` 给出每条记录的原始和标准化距离、目标对数密度、失效点内排名和选中标记。`selection_summary.json` 按组记录同选、异选和候选不足，也保留每个种子的旧中心与两种选择。输出目录使用新路径。

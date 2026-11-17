@@ -8,6 +8,7 @@ import math
 from pathlib import Path
 from statistics import mean, stdev
 
+from .analysis_plan import load_planned_trials
 from .run import wilson_interval
 
 
@@ -98,7 +99,7 @@ def source_evidence(directory, summary, digest, expected_digest, read_issue):
                 issues=problems)
 
 
-def analyze_run(entry, base):
+def analyze_run(entry, base, planned=None):
     directory = (base / entry['run']).resolve()
     summary, digest, read_issue = read_summary(directory)
     target, missing = target_evidence(summary)
@@ -107,6 +108,13 @@ def analyze_run(entry, base):
     strategy = {key: summary[key] for key in STRATEGY_FIELDS if key in summary}
     if profile:
         strategy['estimator_profile'] = profile
+    plan_issues = []
+    if planned and summary:
+        if profile != planned['profile']:
+            plan_issues.append('estimator_profile_differs_from_plan')
+        if any(cost_value != planned[key] for key, cost_value in cost_evidence(summary).items()
+               if key in planned):
+            plan_issues.append('budget_differs_from_plan')
     status = read_issue or summary.get('status', 'missing_status')
     integrity = bool(summary) and (entry.get('sha256') is None or entry['sha256'] == digest)
     seed_matches = type(summary.get('seed')) is int and entry['seed'] == summary['seed']
@@ -124,7 +132,7 @@ def analyze_run(entry, base):
     warnings = list((summary.get('sampling_diagnostics') or {}).get('warnings', []))
     if finite(estimate) and estimate > 1 and 'estimate_above_one' not in warnings:
         warnings.append('estimate_above_one')
-    status_allows = (status in COMPLETED and integrity and seed_matches and not cost_issues
+    status_allows = (status in COMPLETED and integrity and seed_matches and not cost_issues and not plan_issues
                      and integer(cost['formal_draws']) and cost['formal_draws'] > 0)
     linear = status_allows and finite(estimate) and estimate >= 0 and numeric not in ('underflow', 'overflow')
     log_only = status_allows and numeric in ('underflow', 'overflow') and finite(log_estimate)
@@ -134,7 +142,8 @@ def analyze_run(entry, base):
                 pfail_estimate=estimate, log10_pfail=log_estimate, warnings=warnings,
                 estimate_available=linear or log_only, linear_usable=linear, source_integrity=integrity,
                 seed_matches=seed_matches, target=target, missing_target_fields=missing,
-                strategy=strategy, cost=cost, cost_issues=cost_issues, source=source)
+                strategy=strategy, cost=cost, cost_issues=cost_issues, source=source,
+                planned=planned, plan_issues=plan_issues)
 
 
 def evaluate_reference(entries, base, anchor, trial_seeds, trial_paths):
@@ -142,16 +151,24 @@ def evaluate_reference(entries, base, anchor, trial_seeds, trial_paths):
         return dict(status='not_specified', estimate=None, interval=None, sources=[])
     sources, issues, seeds = [], [], set()
     failures = draws = 0
-    for name in entries:
-        path = (base / name).resolve()
+    for entry in entries:
+        item = {'run': entry} if isinstance(entry, str) else entry
+        path = (base / item['run']).resolve()
         summary, digest, read_issue = read_summary(path)
-        record = source_evidence(path, summary, digest, None, read_issue)
+        expected = item.get('sha256')
+        record = source_evidence(path, summary, digest, expected, read_issue)
+        if expected is None:
+            record['issues'].append('reference_hash_not_pinned')
         sources.append(record)
         target, missing = target_evidence(summary)
         seed = summary.get('seed')
         cost = cost_evidence(summary)
         n, k = cost['xyce_returned'], summary.get('failure_count')
         errs = []
+        if expected is not None and expected != digest:
+            errs.append('reference_sha256_mismatch')
+        if 'seed' in item and item['seed'] != seed:
+            errs.append('reference_seed_differs_from_plan')
         if missing or anchor is None or target != anchor:
             errs.append('reference_target_mismatch_or_incomplete')
         if path in trial_paths or not integer(seed) or seed in (trial_seeds | seeds):
@@ -174,7 +191,8 @@ def evaluate_reference(entries, base, anchor, trial_seeds, trial_paths):
     revisions = {s['git_revision'] for s in sources}
     solvers = {(s['solver'], s['solver_version']) for s in sources}
     complete = all(not s['issues'] for s in sources) and len(revisions) == len(solvers) == 1
-    return dict(status='available', provenance_complete=complete, estimate=failures / draws,
+    return dict(status='available', all_hashes_pinned=all(s['expected_summary_sha256'] for s in sources),
+                provenance_complete=complete, estimate=failures / draws,
                 failure_count=failures, samples=draws, interval=wilson_interval(failures, draws),
                 confidence=.95, interval_method='Wilson', sources=sources)
 
@@ -200,24 +218,48 @@ def eligible_for_metrics(row):
 
 
 def summarize_methods(rows, reference):
-    for estimator in dict.fromkeys(row['estimator'] for row in rows):
-        trials = [row for row in rows if row['estimator'] == estimator]
+    totals = Counter(row['estimator'] for row in rows)
+    without_estimate = Counter(row['estimator'] for row in rows if not row['estimate_available'])
+    cohorts = {}
+    budget_fields = ('budget_protocol', 'budget', 'draw_cap', 'xyce_cap', 'estimation_cap',
+                     'time_limit_s', 'legacy_budget_basis')
+    for row in rows:
+        if row['planned'] is not None:
+            planned = row['planned']
+            budget = {key: planned.get(key) for key in budget_fields}
+            strategy = {'estimator_profile': planned['profile']}
+            target_group = 'different' if row['target_status'] == 'different' else 'planned_target'
+        else:
+            budget = {key: row['cost'][key] for key in budget_fields}
+            strategy = row['strategy']
+            target_group = row['target_status']
+        key = row['estimator'], target_group, signature(budget), signature(strategy)
+        cohorts.setdefault(key, []).append(row)
+    for (estimator, target_group, budget_id, strategy_id), trials in cohorts.items():
         matched = [row for row in trials if row['target_status'] == 'same']
         usable = [row for row in matched if eligible_for_metrics(row)]
-        consistent = agreement([row['strategy'] for row in usable]) if usable else 'unknown'
-        values = [r['pfail_estimate'] for r in usable] if consistent == 'same' else []
+        budget = json.loads(budget_id)
+        # Unrecorded budget tiers stay visible but cannot substantiate a cross-seed error claim.
+        known_tier = (integer(budget['budget']) and budget['budget'] > 0
+                      or finite(budget['time_limit_s']) and budget['time_limit_s'] > 0)
+        values = [r['pfail_estimate'] for r in usable] if known_tier else []
         center, interval = reference['estimate'], reference['interval']
         errors = ([abs(value - center) for value in values] if center is not None else [])
         n = len(trials)
         missing = Counter(row['estimate_status'] for row in trials if not row['estimate_available'])
-        yield dict(estimator=estimator, total_runs=n, target_matched_runs=len(matched),
+        yield dict(estimator=estimator, target_cohort=target_group, budget_tier=budget,
+                   strategy=json.loads(strategy_id), total_runs=n,
+                   estimator_planned_runs=totals[estimator],
+                   estimator_no_estimate_runs=without_estimate[estimator],
+                   estimator_no_estimate_fraction=without_estimate[estimator] / totals[estimator],
+                   target_matched_runs=len(matched),
                    estimates_available=sum(row['estimate_available'] for row in trials),
                    no_estimate_runs=sum(missing.values()), no_estimate_fraction=sum(missing.values()) / n,
                    no_estimate_reasons=dict(missing), linear_metrics_runs=len(values),
                    log_only_matched_runs=sum(row['estimate_available'] and not row['linear_usable'] for row in matched),
                    weight_warning_runs=sum('low_observed_weight_mass' in row['warnings'] for row in trials),
                    above_one_runs=sum('estimate_above_one' in row['warnings'] for row in trials),
-                   strategy_consistency=consistent, mean_estimate=mean(values) if values else None,
+                   mean_estimate=mean(values) if values else None,
                    budget_protocol_check=agreement([protocol_key(row['cost']) for row in matched]),
                    xyce_submitted_check=agreement([row['cost']['xyce_submitted'] for row in matched]),
                    seed_std=stdev(values) if len(values) > 1 else None,
@@ -228,8 +270,9 @@ def summarize_methods(rows, reference):
                    rmse=math.hypot(*(error / math.sqrt(len(errors)) for error in errors)) if errors else None)
 
 
-def analyze_group(group, base):
-    rows = [analyze_run(entry, base) for entry in group['runs']]
+def analyze_group(group, base, planned):
+    rows = [analyze_run(entry, base, planned.get((entry['estimator'], entry['seed'])))
+            for entry in group['runs']]
     # The first declared run with an intact definition anchors the group. A failed
     # simulation can still define the target; success and weight quality play no role.
     anchor_row = next((r for r in rows if r['source_integrity'] and r['seed_matches']
@@ -243,6 +286,7 @@ def analyze_group(group, base):
         row['estimate_status'] = ('linear' if row['linear_usable'] else 'log_only' if row['estimate_available']
                                   else row['status'] if row['status'] in ('missing_summary', 'invalid_summary')
                                   else 'integrity_or_seed' if not row['source_integrity'] or not row['seed_matches']
+                                  else 'differs_from_plan' if row['plan_issues']
                                   else 'invalid_cost_evidence' if row['status'] in COMPLETED and row['cost_issues']
                                   else row['status'] if row['status'] not in COMPLETED else 'no_numeric_estimate')
     ref = evaluate_reference(group.get('reference_runs'), base, anchor, {r['seed'] for r in rows},
@@ -267,6 +311,8 @@ def analyze_group(group, base):
                   if anchor_row else None, target_same=target_counts['same'], target_different=target_counts['different'],
                   target_unknown=target_counts['unknown'], source_incomplete=sum(bool(r['source']['issues']) for r in rows),
                   cost_incomplete=sum(bool(r['cost_issues']) for r in rows),
+                  plan_mismatch=sum(bool(r['plan_issues']) for r in rows),
+                  run_list_basis='frozen_plan' if planned else 'manual_manifest',
                   source_revision_check=agreement([r['source']['git_revision'] for r in same]),
                   solver_version_check=agreement([r['source']['solver_version'] for r in same]),
                   budget_protocol_check=agreement([protocol_key(r['cost']) for r in same]),
@@ -295,7 +341,10 @@ def validate_manifest(manifest, base, output):
         if not isinstance(entries, list) or not entries:
             raise ValueError('Each group needs a runs list')
         if 'reference_runs' in group and (not isinstance(references, list) or not references
-                or not all(isinstance(ref, str) and ref for ref in references)):
+                or not all(isinstance(ref, str) and ref or isinstance(ref, dict)
+                           and isinstance(ref.get('run'), str) and ref['run']
+                           and isinstance(ref.get('sha256'), str) and len(ref['sha256']) == 64
+                           for ref in references)):
             raise ValueError('reference_runs must be a nonempty list of run directories')
         pairs, paths = set(), set()
         for entry in entries:
@@ -308,7 +357,8 @@ def validate_manifest(manifest, base, output):
                 raise ValueError('Duplicate estimator/seed or run directory within a group')
             pairs.add(pair)
             paths.add(path)
-        all_inputs = paths | {(base / name).resolve() for name in references or []}
+        all_inputs = paths | {(base / (ref if isinstance(ref, str) else ref['run'])).resolve()
+                             for ref in references or []}
         if output in all_inputs or any(path in output.parents for path in all_inputs):
             raise ValueError('Use a separate analysis output directory')
 
@@ -328,7 +378,8 @@ def analyze(manifest_path, output):
     raw = manifest_path.read_bytes()
     manifest = json.loads(raw)
     validate_manifest(manifest, manifest_path.parent, output)
-    groups = [analyze_group(group, manifest_path.parent) for group in manifest['groups']]
+    planned = load_planned_trials(manifest, manifest_path.parent)
+    groups = [analyze_group(group, manifest_path.parent, planned) for group in manifest['groups']]
     result = dict(kind='offline_comparison', manifest_path=str(manifest_path),
                   manifest_sha256=hashlib.sha256(raw).hexdigest(),
                   ranking_eligible=False, groups=groups)

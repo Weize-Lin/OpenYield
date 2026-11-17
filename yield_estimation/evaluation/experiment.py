@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 
+from .analysis_plan import analysis_manifest
 from .research_settings import parse_research_context, positive_int, require_keys
 from .run import ROOT, evaluation_circuit_options, normalize_config, source_revision, validate_algorithm_case
 from .run_diagnostics import plan
@@ -102,12 +103,14 @@ def result_row(profile, seed, folder, algorithm, code, summary):
                 run=f"{folder.as_posix()}/{algorithm}", process_log=f"{folder.as_posix()}/process.log")
 
 
-def run_experiment(config, output_dir):
+def run_experiment(config, output_dir, *, reference_runs=()):
     """Freeze the experiment and execute each registered estimator in a fresh process."""
     config = normalize_experiment(config)
     output = Path(output_dir).resolve()
     output.mkdir(parents=True, exist_ok=False)
-    write_json(output / "experiment.json", config)
+    experiment_file = output / "experiment.json"
+    write_json(experiment_file, config)
+    write_json(output / "analysis_manifest.json", analysis_manifest(config, experiment_file, reference_runs))
     revision, dirty = source_revision()
     trials = []
     for profile, seed, child in child_configs(config):
@@ -144,9 +147,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--reference-run", action="append", type=Path, default=[],
+                        help="Pin an existing independent MC run for offline analysis; repeat for multiple runs")
     args = parser.parse_args()
     try:
-        result = run_experiment(args.config, args.output_dir)
+        result = run_experiment(args.config, args.output_dir, reference_runs=args.reference_run)
     except (OSError, ValueError) as exc:
         parser.exit(2, str(exc) + "\n")
     return int(any(row["exit_code"] or row["status"] == "runner_error" for row in result["trials"]))

@@ -78,7 +78,7 @@ analytic reference probabilities, and explicit settings:
 python -m unittest discover -s tests -p test_evaluation_weight_contract.py -v
 ```
 
-The [M0/M1 estimation acceptance report](yield_estimation/evaluation/M0_M1_ACCEPTANCE.md) documents CPU-only analytic checks, the ACS clustering audit, and reproducible test commands.
+The [estimation acceptance report](yield_estimation/evaluation/ESTIMATION_ACCEPTANCE.md) documents CPU-only analytic checks, the ACS clustering audit, and reproducible test commands.
 
 The [MNIS offline selection evidence](docs/research/mnis_selection/README.md) includes complete candidate batches and a replay that requires no circuit simulation.
 

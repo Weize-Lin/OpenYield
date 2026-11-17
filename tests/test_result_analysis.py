@@ -1,13 +1,17 @@
 """Offline analysis contracts; run reports are synthetic and no simulator is used."""
 from copy import deepcopy
 import csv
+import hashlib
 import io
 import json
 from contextlib import redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
+from yield_estimation.evaluation import experiment
 from yield_estimation.evaluation.analyze_results import analyze
 
 
@@ -49,7 +53,9 @@ class AnalysisContract(unittest.TestCase):
                        requested_samples=100, returned_rows=100, pfail_estimate=.05)
         for key in ('algorithm_requested_samples', 'simulator_submitted_samples', 'simulator_returned_samples'):
             summary.pop(key)
-        return self.save(name, summary, estimator='mc')['run']
+        directory = self.save(name, summary, estimator='mc')['run']
+        raw = (self.root / directory / 'run_summary.json').read_bytes()
+        return dict(run=directory, sha256=hashlib.sha256(raw).hexdigest(), seed=seed)
 
     def run_manifest(self, runs, references=()):
         group = dict(id='demo', runs=runs)
@@ -123,7 +129,9 @@ class AnalysisContract(unittest.TestCase):
         self.assertEqual(group['runs'][1]['reference_source_match'], 'different')
         self.assertEqual(set(group['runs'][2]['target_differences']), {'threshold', 'resolved_circuit'})
         self.assertIsNone(group['runs'][2]['absolute_error'])
-        self.assertEqual(group['methods'][0]['no_estimate_reasons'], {'missing_summary': 1})
+        missing = next(row for row in group['methods'] if row['no_estimate_runs'])
+        self.assertEqual(missing['no_estimate_reasons'], {'missing_summary': 1})
+        self.assertEqual(missing['estimator_no_estimate_fraction'], 1 / 3)
 
     def test_reference_rejects_reused_seed(self):
         group = self.run_manifest([self.save('trial', self.summary(1))], [self.reference(seed=1)])
@@ -143,6 +151,83 @@ class AnalysisContract(unittest.TestCase):
         self.assertIn('bitcell_parameter_order', group['runs'][1]['missing_target_fields'])
         self.assertEqual(group['methods'][0]['linear_metrics_runs'], 0)
 
+
+    def test_different_budget_tiers_do_not_share_seed_statistics(self):
+        first = self.summary(1)
+        same_cap = dict(self.summary(2), pfail_estimate=.12, algorithm_requested_samples=19,
+                        simulator_submitted_samples=19, simulator_returned_samples=19)
+        higher = dict(self.summary(3), pfail_estimate=.9, budget=30,
+                      research_cost={'budget_unit': 'xyce_samples', 'xyce_cap': 30, 'algorithm_draw_cap': 34})
+        group = self.run_manifest([self.save('a', first), self.save('b', same_cap),
+                                   self.save('higher', higher)], [self.reference()])
+        tiers = {row['budget_tier']['budget']: row for row in group['methods']}
+        self.assertEqual(set(tiers), {20, 30})
+        self.assertEqual(tiers[20]['error_runs'], 2)
+        self.assertAlmostEqual(tiers[20]['seed_std'], .04 / 2 ** .5)
+        self.assertEqual(tiers[20]['xyce_submitted_check'], 'different')
+        self.assertEqual(tiers[30]['error_runs'], 1)
+        self.assertIsNone(tiers[30]['seed_std'])
+        self.assertAlmostEqual(tiers[30]['rmse'], .85)
+
+    def test_reference_hash_mismatch_excludes_only_reference(self):
+        reference = self.reference()
+        file = self.root / reference['run'] / 'run_summary.json'
+        file.write_bytes(file.read_bytes() + b'\n')
+        group = self.run_manifest([self.save('trial', self.summary(1))], [reference])
+        self.assertEqual(group['reference']['status'], 'invalid')
+        self.assertIn('reference_sha256_mismatch', group['reference']['issues'])
+        self.assertEqual(group['runs'][0]['pfail_estimate'], .08)
+        self.assertIsNone(group['methods'][0]['rmse'])
+
+    def test_runner_freezes_all_planned_runs_before_first_child(self):
+        reference = self.reference()
+        config = dict(schema_version=1, seeds=[1, 2], budget_per_algorithm=20,
+            experiment=dict(case='sram_6t_hold_snm', corner='TT', vdd=1, temperature_c=27,
+                            threshold_mv=327.65, relative_std=.05, u0_positive=True, batch_size=4),
+            estimators=[dict(algorithm='mc', id='direct')])
+        run = self.root / 'experiment'
+        manifest = run / 'analysis_manifest.json'
+
+        def simulated_process(command, **_kwargs):
+            plan = json.loads(manifest.read_text())
+            self.assertEqual([item['seed'] for item in plan['groups'][0]['runs']], [1, 2])
+            self.assertEqual(plan['groups'][0]['reference_runs'][0]['sha256'], reference['sha256'])
+            destination = Path(command[command.index('--output-dir') + 1])
+            if destination.parent.name == 'seed_1':
+                summary = self.summary(1)
+                summary.update(algorithm='repository_MC', status='complete', failure_count=2,
+                    requested_samples=20, returned_rows=20, pfail_estimate=.1,
+                    research={'estimator': {'id': 'direct', 'algorithm': 'mc', 'mode': 'reference'}},
+                    research_cost={'budget_unit': 'algorithm_draws', 'xyce_cap': 20, 'algorithm_draw_cap': 20})
+                destination.mkdir()
+                (destination / 'run_summary.json').write_text(json.dumps(summary))
+                return SimpleNamespace(returncode=0)
+            return SimpleNamespace(returncode=1)
+
+        with patch.object(experiment, 'subprocess', SimpleNamespace(
+                run=simulated_process, STDOUT=experiment.subprocess.STDOUT)), \
+                redirect_stdout(io.StringIO()):
+            experiment.run_experiment(config, run, reference_runs=[self.root / reference['run']])
+        with redirect_stdout(io.StringIO()):
+            group = analyze(manifest, self.root / 'analysis')['groups'][0]
+        self.assertEqual(group['checks']['run_list_basis'], 'frozen_plan')
+        self.assertEqual(group['checks']['total_runs'], 2)
+        self.assertEqual([row['status'] for row in group['runs']], ['complete', 'missing_summary'])
+        cohort, = group['methods']
+        self.assertEqual(cohort['total_runs'], 2)
+        self.assertEqual(cohort['budget_tier']['budget'], 20)
+        self.assertEqual(cohort['no_estimate_fraction'], .5)
+        self.assertEqual(cohort['error_runs'], 1)
+        plan = json.loads(manifest.read_text())
+        trimmed = deepcopy(plan)
+        trimmed['groups'][0]['runs'].pop()
+        manifest.write_text(json.dumps(trimmed), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'Analysis runs differ'):
+            analyze(manifest, self.root / 'trimmed')
+        plan['groups'][0].pop('reference_runs')
+        manifest.write_text(json.dumps(plan), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'reference selection differs'):
+            analyze(manifest, self.root / 'omitted-reference')
 
 if __name__ == '__main__':
     unittest.main()
