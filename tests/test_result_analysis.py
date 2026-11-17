@@ -11,7 +11,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from yield_estimation.evaluation import experiment
+from yield_estimation.evaluation import experiment, solver_provenance
 from yield_estimation.evaluation.analysis_plan import analysis_manifest
 from yield_estimation.evaluation.analyze_results import analyze
 
@@ -32,7 +32,8 @@ class AnalysisContract(unittest.TestCase):
             measurement='hold_snm', failure_operator='<', outcome_rule_version='snm_outcomes_v1',
             threshold_mv=327.65, threshold_field='threshold_mv',
             git_revision='fixture-revision', git_tracked_files_modified=False,
-            xyce='/fake/path/Xyce', xyce_version='fixture-version', seed=seed, status='budget_stopped',
+            xyce='/fake/path/Xyce', xyce_version='fixture-version', xyce_sha256='a' * 64,
+            seed=seed, status='budget_stopped',
             research_cost={'budget_unit': 'xyce_samples', 'algorithm_draw_cap': 24, 'xyce_cap': 20},
             budget=20, algorithm='repository_MNIS_configured_proposal', initialization_sigma=3.,
             algorithm_requested_samples=20, simulator_submitted_samples=20, simulator_returned_samples=20,
@@ -267,6 +268,26 @@ class AnalysisContract(unittest.TestCase):
             self.assertEqual(row['pfail_estimate'], .1)
             self.assertIsNone(row['absolute_error'])
         self.assertEqual(sum(method['linear_metrics_runs'] for method in group['methods']), 0)
+
+
+    def test_solver_fingerprint_queries_version_and_hashes_binary(self):
+        binary = self.root / 'Xyce'
+        binary.write_bytes(b'fixture solver image')
+        with patch.object(solver_provenance.subprocess, 'run', return_value=SimpleNamespace(
+                stdout='fixture version\n', stderr='', returncode=0)) as probe:
+            actual = solver_provenance.xyce_fingerprint(str(binary))
+        self.assertEqual(probe.call_args.args[0], [str(binary), '-v'])
+        self.assertEqual(actual['xyce_version'], 'fixture version')
+        self.assertEqual(actual['xyce_sha256'], hashlib.sha256(b'fixture solver image').hexdigest())
+
+    def test_same_version_different_executable_is_a_source_difference(self):
+        runs = [self.save('a', dict(self.summary(1), xyce='/another/prefix/Xyce')),
+                self.save('b', dict(self.summary(2), xyce_sha256='b' * 64))]
+        group = self.run_manifest(runs, [self.reference()])
+        self.assertEqual(group['checks']['solver_version_check'], 'same')
+        self.assertEqual(group['checks']['solver_sha256_check'], 'different')
+        self.assertTrue(group['reference']['provenance_complete'])
+        self.assertEqual([r['reference_source_match'] for r in group['runs']], ['same', 'different'])
 
 
 if __name__ == '__main__':

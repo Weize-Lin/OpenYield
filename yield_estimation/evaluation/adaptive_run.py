@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 
 import numpy as np
+from yield_estimation.evaluation.solver_provenance import xyce_fingerprint
 from yield_estimation.evaluation.outcomes import MeasurementRule
 from .research import InitializationInsufficient, ResearchRun, SimulationBudgetReached
 from yield_estimation.evaluation.run import (
@@ -67,9 +68,10 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
     error = None
     status = "incomplete"
     try:
-        summary["xyce"] = shutil.which("Xyce")
-        if not summary["xyce"]:
+        xyce = shutil.which("Xyce")
+        if not xyce:
             raise RuntimeError("Xyce not found; activate openyield")
+        summary.update(xyce_fingerprint(xyce))
         means, target, bench = build_evaluation_case(config, options, output, summary)
         summary["nominal_parameters"] = means.tolist()
         if "research" in config:

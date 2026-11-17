@@ -67,7 +67,7 @@ run_phase() {
     return "$status"
 }
 printf 'phase\texit_code\twall_seconds\n' > "$output/phase_status.tsv"
-sha256sum --check --status "$output/config_sha256.txt"
+sha256sum --check --status "$output/config_sha256.txt" "$output/runtime_sha256.txt"
 reference_status=0
 run_phase reference 10m || reference_status=$?
 if [[ -f $output/reference/analysis_manifest.json ]]; then
@@ -87,14 +87,21 @@ import sys
 output = Path(sys.argv[1])
 group, = json.loads((output / 'reference_check/analysis.json').read_text())['groups']
 runs = group['runs']
+runtime = (output / 'runtime_sha256.txt').read_text().splitlines()
+solver_sha, model_sha = [line.split()[0] for line in runtime[:2]]
+solver_version = (output / 'solver.txt').read_text().split('\n', 1)[1].strip()
+revision = (output / 'source_revision.txt').read_text().strip()
 valid = (len(runs) == 4 and group['checks']['target_same'] == 4
          and all(row['status'] == 'complete' and row['estimate_available']
                  and row['cost']['xyce_submitted'] == row['cost']['xyce_returned'] == 256
+                 and row['source']['solver_sha256'] == solver_sha and row['source']['solver_version'] == solver_version
+                 and row['source']['model_sha256'] == model_sha and row['source']['git_revision'] == revision
+                 and row['source']['git_dirty'] is False
                  for row in runs))
 if not valid:
     raise SystemExit('Reference evidence is incomplete. Comparison was not started.')
 PY
-sha256sum --check --status "$output/config_sha256.txt"
+sha256sum --check --status "$output/config_sha256.txt" "$output/runtime_sha256.txt"
 reference_args=()
 for seed in 8311 8312 8313 8314; do
     reference_args+=(--reference-run "$output/reference/mc/seed_$seed/mc")

@@ -24,6 +24,7 @@ from sram_compiler.per_device_mc.netlist import (
 )
 from sram_compiler.version import VERSION
 from yield_estimation.model_lib.MC import MC
+from yield_estimation.evaluation.solver_provenance import xyce_fingerprint
 from yield_estimation.evaluation.outcomes import (
     MeasurementRule, threshold_seconds, UNCLASSIFIED,
 )
@@ -478,7 +479,7 @@ def run_evaluation(config, output):
         xyce = shutil.which("Xyce")
         if xyce is None:
             raise RuntimeError("Activate the openyield environment with Xyce on PATH")
-        summary["xyce"] = xyce
+        summary.update(xyce_fingerprint(xyce))
         means, process, testbench = build_evaluation_case(config, options, output, summary)
         recorder = RecordedAccessTestbench(testbench, output, config)
         if mode != "custom":

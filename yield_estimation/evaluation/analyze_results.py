@@ -92,10 +92,15 @@ def source_evidence(directory, summary, digest, expected_digest, read_issue):
         problems.append('missing_model_hash')
     if not summary.get('xyce') or not summary.get('xyce_version'):
         problems.append('missing_solver_path_or_version')
+    solver_hash = summary.get('xyce_sha256')
+    if not isinstance(solver_hash, str) or len(solver_hash) != 64 or any(c not in '0123456789abcdef' for c in solver_hash):
+        solver_hash = None
+        problems.append('missing_or_invalid_solver_sha256')
     return dict(summary=str(directory / 'run_summary.json'), summary_sha256=digest,
                 expected_summary_sha256=expected_digest, git_revision=revision, git_dirty=dirty,
                 model_sha256=summary.get('model_sha256'), solver=summary.get('xyce'),
-                solver_version=summary.get('xyce_version'), compiler_version=summary.get('compiler_version'),
+                solver_version=summary.get('xyce_version'), solver_sha256=solver_hash,
+                solver_identity_issue=summary.get('xyce_identity_issue'), compiler_version=summary.get('compiler_version'),
                 issues=problems)
 
 
@@ -195,7 +200,7 @@ def evaluate_reference(entries, base, anchor, trial_seeds, trial_paths):
     if issues:
         return dict(status='invalid', issues=list(dict.fromkeys(issues)), estimate=None, interval=None, sources=sources)
     revisions = {s['git_revision'] for s in sources}
-    solvers = {(s['solver'], s['solver_version']) for s in sources}
+    solvers = {(s['solver_version'], s['solver_sha256']) for s in sources}
     complete = all(not s['issues'] for s in sources) and len(revisions) == len(solvers) == 1
     return dict(status='available', all_hashes_pinned=all(s['expected_summary_sha256'] for s in sources),
                 provenance_complete=complete, estimate=failures / draws,
@@ -301,13 +306,14 @@ def analyze_group(group, base, planned):
     target_counts = Counter(row['target_status'] for row in rows)
     same = [row for row in rows if row['target_status'] == 'same']
     if ref['status'] == 'available':
-        ref_sources = {(s['git_revision'], s['solver_version']) for s in ref['sources']}
+        ref_sources = {(s['git_revision'], s['solver_version'], s['solver_sha256']) for s in ref['sources']}
     else:
         ref_sources = set()
     for row in rows:
         usable = eligible_for_metrics(row) and ref['status'] == 'available'
         row['absolute_error'] = abs(row['pfail_estimate'] - ref['estimate']) if usable else None
-        key = (row['source']['git_revision'], row['source']['solver_version'])
+        source = row['source']
+        key = (source['git_revision'], source['solver_version'], source['solver_sha256'])
         if not ref_sources:
             row['reference_source_match'] = 'not_available'
         elif None in key or row['source']['issues'] or not ref['provenance_complete']:
@@ -323,6 +329,7 @@ def analyze_group(group, base, planned):
                   run_list_basis='frozen_plan' if planned else 'manual_manifest',
                   source_revision_check=agreement([r['source']['git_revision'] for r in same]),
                   solver_version_check=agreement([r['source']['solver_version'] for r in same]),
+                  solver_sha256_check=agreement([r['source']['solver_sha256'] for r in same]),
                   budget_protocol_check=agreement([protocol_key(r['cost']) for r in same]),
                   draw_cap_check=agreement([r['cost']['draw_cap'] for r in same]),
                   formal_draw_cap_check=agreement([r['cost']['estimation_cap'] for r in same]),
