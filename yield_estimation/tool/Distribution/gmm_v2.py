@@ -315,7 +315,8 @@ class GaussianMixture(torch.nn.Module):
             mu = self.mu
             prec = torch.rsqrt(self.var)
 
-            log_p = torch.sum((mu * mu + x * x - 2 * x * mu) * (prec ** 2), dim=2, keepdim=True)
+            # Center before squaring to preserve small deviations near the mean.
+            log_p = torch.sum(((x - mu) * prec).square(), dim=2, keepdim=True)
             log_det = torch.sum(torch.log(prec), dim=2, keepdim=True)
 
             return -.5 * (self.n_features * np.log(2. * pi) + log_p) + log_det
