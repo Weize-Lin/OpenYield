@@ -3,6 +3,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from .outcomes import MeasurementRule
+
 
 def planned_trials(experiment):
     for profile in experiment['estimators']:
@@ -59,7 +61,14 @@ def load_planned_trials(manifest, base):
         raise ValueError('Analysis runs differ from frozen execution plan: missing, added, relocated or reordered run')
     if group.get('reference_runs', []) != plan['reference_runs']:
         raise ValueError('Analysis reference selection differs from frozen execution plan')
-    return {(entry['estimator'], entry['seed']): dict(profile=profile, budget=experiment['budget_per_algorithm'],
+    shared = experiment['experiment']
+    circuit = shared['circuit']
+    rule = MeasurementRule(circuit['operation'], shared)
+    target = dict(case=shared['case'], resolved_circuit=circuit, operation=circuit['operation'],
+                  target=circuit['target'], relative_std=shared['relative_std'], u0_positive=shared['u0_positive'],
+                  measurement=rule.metric, failure_operator=rule.operator, outcome_rule_version=rule.version,
+                  threshold_field=rule.threshold_key, threshold=rule.threshold_value)
+    return {(entry['estimator'], entry['seed']): dict(profile=profile, target=target, budget=experiment['budget_per_algorithm'],
              budget_protocol=experiment['budget_unit'], xyce_cap=experiment['budget_per_algorithm'],
              draw_cap=experiment['max_algorithm_draws'], estimation_cap=profile.get('estimation_draws'))
             for entry, profile in planned}

@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from yield_estimation.evaluation import experiment
+from yield_estimation.evaluation.analysis_plan import analysis_manifest
 from yield_estimation.evaluation.analyze_results import analyze
 
 
@@ -187,6 +188,12 @@ class AnalysisContract(unittest.TestCase):
             estimators=[dict(algorithm='mc', id='direct')])
         run = self.root / 'experiment'
         manifest = run / 'analysis_manifest.json'
+        resolved = experiment.normalize_experiment(config)['experiment']['circuit']
+        reference_file = self.root / reference['run'] / 'run_summary.json'
+        reference_data = json.loads(reference_file.read_text())
+        reference_data['resolved_circuit'] = resolved
+        reference_file.write_text(json.dumps(reference_data))
+        reference['sha256'] = hashlib.sha256(reference_file.read_bytes()).hexdigest()
 
         def simulated_process(command, **_kwargs):
             plan = json.loads(manifest.read_text())
@@ -195,7 +202,7 @@ class AnalysisContract(unittest.TestCase):
             destination = Path(command[command.index('--output-dir') + 1])
             if destination.parent.name == 'seed_1':
                 summary = self.summary(1)
-                summary.update(algorithm='repository_MC', status='complete', failure_count=2,
+                summary.update(resolved_circuit=resolved, algorithm='repository_MC', status='complete', failure_count=2,
                     requested_samples=20, returned_rows=20, pfail_estimate=.1,
                     research={'estimator': {'id': 'direct', 'algorithm': 'mc', 'mode': 'reference'}},
                     research_cost={'budget_unit': 'algorithm_draws', 'xyce_cap': 20, 'algorithm_draw_cap': 20})
@@ -228,6 +235,39 @@ class AnalysisContract(unittest.TestCase):
         manifest.write_text(json.dumps(plan), encoding='utf-8')
         with self.assertRaisesRegex(ValueError, 'reference selection differs'):
             analyze(manifest, self.root / 'omitted-reference')
+
+    def test_consistent_summaries_cannot_override_frozen_target(self):
+        raw = dict(schema_version=1, seeds=[1, 2], budget_per_algorithm=20,
+            experiment=dict(case='sram_6t_hold_snm', corner='TT', vdd=1, temperature_c=27,
+                            threshold_mv=327.65, relative_std=.05, u0_positive=True, batch_size=4),
+            estimators=[dict(algorithm='mc', id='direct')])
+        config = experiment.normalize_experiment(raw)
+        path = self.root / 'experiment.json'
+        experiment.write_json(path, config)
+        manifest_path = self.root / 'analysis_manifest.json'
+        experiment.write_json(manifest_path, analysis_manifest(config, path, []))
+        profile, = config['estimators']
+        for seed in config['seeds']:
+            directory = self.root / 'direct' / f'seed_{seed}' / 'mc'
+            directory.mkdir(parents=True)
+            summary = self.summary(seed)
+            summary.update(resolved_circuit=config['experiment']['circuit'], threshold_mv=340.,
+                research={'estimator': profile}, algorithm='repository_MC', status='complete',
+                failure_count=2, requested_samples=20, returned_rows=20, pfail_estimate=.1,
+                research_cost={'budget_unit': 'algorithm_draws', 'xyce_cap': 20, 'algorithm_draw_cap': 20})
+            (directory / 'run_summary.json').write_text(json.dumps(summary))
+        with redirect_stdout(io.StringIO()):
+            group = analyze(manifest_path, self.root / 'analysis')['groups'][0]
+        self.assertEqual(group['checks']['target_same'], 0)
+        self.assertEqual(group['checks']['target_different'], 2)
+        self.assertEqual(group['checks']['plan_target_mismatch'], 2)
+        for row in group['runs']:
+            self.assertEqual(row['plan_target_differences'], ['threshold'])
+            self.assertEqual(row['plan_issues'], ['target_differs_from_plan'])
+            self.assertEqual(row['pfail_estimate'], .1)
+            self.assertIsNone(row['absolute_error'])
+        self.assertEqual(sum(method['linear_metrics_runs'] for method in group['methods']), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

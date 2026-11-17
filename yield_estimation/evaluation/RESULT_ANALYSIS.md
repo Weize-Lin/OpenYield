@@ -54,7 +54,7 @@ python -m yield_estimation.evaluation.analyze_results \
   --manifest outputs/comparative_run/analysis_manifest.json --output-dir outputs/comparative_report
 ```
 
-第一次启动子进程前会写出 `experiment.json`、`analysis_plan.json` 和 `analysis_manifest.json`。请一起保留三份文件。分析时对照计划检查方法和种子是否被漏填、加入、改路径或换序，并检查参考是否被替换。还没产生摘要的计划条目会进入原订预算档位，计为无估计。手写清单也可用对象 `{ "run": "path", "sha256": "摘要的 SHA-256", "seed": 123 }` 登记参考。历史仅有路径的清单继续可读，并标明参考哈希未冻结。
+第一次启动子进程前会写出 `experiment.json`、`analysis_plan.json` 和 `analysis_manifest.json`。请一起保留三份文件。分析时对照计划检查方法和种子是否被漏填、加入、改路径或换序，并检查参考是否被替换。 各条摘要还会逐项核对冻结的电路、工艺参数与失效判据。即使所有摘要记录了同一个新门限，也会标记偏离计划，排除在组内统计之外。还没产生摘要的计划条目会进入原订预算档位，计为无估计。手写清单也可用对象 `{ "run": "path", "sha256": "摘要的 SHA-256", "seed": 123 }` 登记参考。历史仅有路径的清单继续可读，并标明参考哈希未冻结。
 
 参考必须显式指定。只接受完整的直接 MC 自定义工艺抽样，目标一致，种子在参考内部不重复，且和比较组的声明种子及目录分开。该检查防止直接复用同一批抽样记录，样本的来源质量仍要结合来源栏判断。参考结果合计失效数及样本数，给出 95% Wilson 区间。参考缺失或不合格时仍保留运行记录，误差栏留空。
 

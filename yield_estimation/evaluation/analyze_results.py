@@ -109,7 +109,13 @@ def analyze_run(entry, base, planned=None):
     if profile:
         strategy['estimator_profile'] = profile
     plan_issues = []
+    plan_target_differences = []
     if planned and summary:
+        observed_target = dict(target, case=summary.get('case'))
+        plan_target_differences = [key for key, expected in planned['target'].items()
+                                   if observed_target[key] != expected]
+        if plan_target_differences:
+            plan_issues.append('target_differs_from_plan')
         if profile != planned['profile']:
             plan_issues.append('estimator_profile_differs_from_plan')
         if any(cost_value != planned[key] for key, cost_value in cost_evidence(summary).items()
@@ -143,7 +149,7 @@ def analyze_run(entry, base, planned=None):
                 estimate_available=linear or log_only, linear_usable=linear, source_integrity=integrity,
                 seed_matches=seed_matches, target=target, missing_target_fields=missing,
                 strategy=strategy, cost=cost, cost_issues=cost_issues, source=source,
-                planned=planned, plan_issues=plan_issues)
+                planned=planned, plan_issues=plan_issues, plan_target_differences=plan_target_differences)
 
 
 def evaluate_reference(entries, base, anchor, trial_seeds, trial_paths):
@@ -276,11 +282,12 @@ def analyze_group(group, base, planned):
     # The first declared run with an intact definition anchors the group. A failed
     # simulation can still define the target; success and weight quality play no role.
     anchor_row = next((r for r in rows if r['source_integrity'] and r['seed_matches']
-                       and not r['missing_target_fields']), None)
+                       and not r['missing_target_fields'] and not r['plan_target_differences']), None)
     anchor = anchor_row['target'] if anchor_row else None
     for row in rows:
         row['target_differences'] = [key for key, value in row['target'].items() if anchor and value != anchor[key]]
-        row['target_status'] = ('unknown' if anchor is None or row['missing_target_fields']
+        row['target_status'] = ('different' if row['plan_target_differences']
+                                else 'unknown' if anchor is None or row['missing_target_fields']
                                 or not row['source_integrity'] or not row['seed_matches']
                                 else 'different' if row['target_differences'] else 'same')
         row['estimate_status'] = ('linear' if row['linear_usable'] else 'log_only' if row['estimate_available']
@@ -312,6 +319,7 @@ def analyze_group(group, base, planned):
                   target_unknown=target_counts['unknown'], source_incomplete=sum(bool(r['source']['issues']) for r in rows),
                   cost_incomplete=sum(bool(r['cost_issues']) for r in rows),
                   plan_mismatch=sum(bool(r['plan_issues']) for r in rows),
+                  plan_target_mismatch=sum(bool(r['plan_target_differences']) for r in rows),
                   run_list_basis='frozen_plan' if planned else 'manual_manifest',
                   source_revision_check=agreement([r['source']['git_revision'] for r in same]),
                   solver_version_check=agreement([r['source']['solver_version'] for r in same]),

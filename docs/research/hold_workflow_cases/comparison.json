@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "experiment": {
+    "case": "sram_6t_hold_snm",
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 27,
+    "relative_std": 0.05,
+    "u0_positive": true,
+    "batch_size": 8,
+    "threshold_mv": 327.65,
+    "circuit": {
+      "array": [
+        1,
+        1,
+        false
+      ],
+      "target": [
+        0,
+        0
+      ],
+      "cell_type": "SRAM_6T_CELL",
+      "cell_6t": null,
+      "operation": "hold_snm",
+      "variation_mode": "custom",
+      "real_cell_mode": 0,
+      "w_rc": true,
+      "interconnect_config": null
+    }
+  },
+  "budget_unit": "xyce_samples",
+  "budget_per_algorithm": 48,
+  "max_algorithm_draws": 48,
+  "seeds": [
+    9101,
+    9102,
+    9103,
+    9104,
+    9105,
+    9106,
+    9107,
+    9108
+  ],
+  "estimators": [
+    {
+      "id": "mc",
+      "algorithm": "mc",
+      "mode": "reference"
+    },
+    {
+      "id": "mnis",
+      "algorithm": "mnis",
+      "mode": "variant",
+      "initial_batch": 4,
+      "initial_failures": 1,
+      "estimation_batch": 1,
+      "initialization": {
+        "method": "uniform_box",
+        "radius_sigma": 3,
+        "max_simulations": 12,
+        "min_failed_candidates": 1,
+        "on_insufficient": "stop"
+      },
+      "center_selection": {
+        "rule": "discovery_order"
+      },
+      "proposal": {
+        "covariance": "target_diagonal",
+        "std_scale": 1,
+        "target_fraction": 0
+      }
+    },
+    {
+      "id": "ais",
+      "algorithm": "ais",
+      "mode": "variant",
+      "initial_batch": 4,
+      "initial_failures": 1,
+      "estimation_batch": 1,
+      "initialization": {
+        "method": "uniform_box",
+        "radius_sigma": 3,
+        "max_simulations": 12,
+        "min_failed_candidates": 1,
+        "on_insufficient": "stop"
+      },
+      "initial_pool": {
+        "count": 1,
+        "rule": "discovery_order"
+      },
+      "proposal": {
+        "covariance": "legacy",
+        "legacy_variance": 0.00001,
+        "std_scale": 1,
+        "target_fraction": 0
+      }
+    },
+    {
+      "id": "acs",
+      "algorithm": "acs",
+      "mode": "variant",
+      "initial_batch": 4,
+      "initial_failures": 1,
+      "estimation_batch": 1,
+      "initialization": {
+        "method": "uniform_box",
+        "radius_sigma": 3,
+        "max_simulations": 12,
+        "min_failed_candidates": 1,
+        "on_insufficient": "stop"
+      },
+      "initial_pool": {
+        "count": 1,
+        "rule": "discovery_order"
+      },
+      "proposal": {
+        "covariance": "legacy",
+        "legacy_variance": 0.00001,
+        "std_scale": 1,
+        "target_fraction": 0
+      }
+    },
+    {
+      "id": "hscs",
+      "algorithm": "hscs",
+      "mode": "variant",
+      "initial_batch": 4,
+      "initial_failures": 1,
+      "estimation_batch": 1,
+      "initialization": {
+        "method": "uniform_box",
+        "radius_sigma": 3,
+        "max_simulations": 12,
+        "min_failed_candidates": 1,
+        "on_insufficient": "stop"
+      },
+      "initial_pool": {
+        "count": 1,
+        "rule": "discovery_order"
+      },
+      "proposal": {
+        "covariance": "legacy",
+        "legacy_variance": 0.00001,
+        "std_scale": 1,
+        "target_fraction": 0
+      },
+      "hscs_search_origin": "nominal",
+      "hscs_search_max_simulations": 8,
+      "allow_hscs_mixed_search": false
+    }
+  ]
+}
