@@ -176,6 +176,12 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
                     float(delay) if supported and np.isfinite(delay) else "",
                     bool(record["indicator"][j]) if supported and evaluated else "",
                     float(record["log_f"][j]), float(record["log_g"][j])])
+    original = summary["original_estimate"]
+    if original:
+        summary["original_estimate"] = {
+            key: str(value) if isinstance(value, (float, np.floating)) and not math.isfinite(value) else value
+            for key, value in original.items()
+        }
     (output / "run_summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False))
     text = [
         "# MNIS 接入诊断", "",
