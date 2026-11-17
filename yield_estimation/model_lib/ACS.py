@@ -202,7 +202,12 @@ class ACS(RecordedAlgorithm):
 
         time1 = time.time()
         IS_bound_num, IS_bound_on = self.IS_bound_num, self.IS_bound_on
-        self.x_fail, origin_sample_num = self._initial_sampling(initial_fail_num, initial_sample_each)
+        legacy_initializer = self._initial_sampling
+        research = getattr(self, "research", None)
+        if research:
+            self.x_fail, origin_sample_num = research.acquire(self, initial_fail_num, initial_sample_each, legacy_initializer)
+        else:
+            self.x_fail, origin_sample_num = legacy_initializer(initial_fail_num, initial_sample_each)
         num_mc = self.x_fail.shape[0]
         self.phase = "recheck"
         self.y_fail = self._simulate(self.x_fail)
@@ -229,6 +234,7 @@ class ACS(RecordedAlgorithm):
             mix_gaussian_val = self._construct_mixture_norm(weight_list, self.x_fail, g_cal_val, self.label_fail)
 
             # IS sampling
+            mix_gaussian_val = self._research_proposal(mix_gaussian_val)
             x_IS = mix_gaussian_val.sample(n=IS_num)
             if IS_bound_on:
                  x_IS= self._IS_bound(x_IS, IS_bound_num)

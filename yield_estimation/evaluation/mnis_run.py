@@ -10,6 +10,7 @@ import shutil
 import numpy as np
 from scipy.special import logsumexp
 from yield_estimation.evaluation.outcomes import MeasurementRule
+from .research import InitializationInsufficient, ResearchRun, SimulationBudgetReached
 from yield_estimation.evaluation.run import (
     read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case, configured_initialization,
     RecordedAccessTestbench, source_revision, PARAMETER_FORMAT, functional_failure_key,
@@ -90,7 +91,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
                    budget_basis="algorithm_requests_including_recheck_and_zero_target_draws",
                    config_batch_size_note="MC setting; MNIS uses mnis_settings.json",
                    process_param_format=PARAMETER_FORMAT, settings=settings, operation=operation, **rule.metadata())
-    algorithm = recorder = None
+    algorithm = recorder = research = None
     original_dir = Path.cwd()
     error = None
     status = "incomplete"
@@ -100,9 +101,15 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
             raise RuntimeError("Xyce not found; activate openyield")
         means, target, bench = build_evaluation_case(config, options, output, summary)
         summary["nominal_parameters"] = means.tolist()
+        if "research" in config:
+            research = ResearchRun(config, output, target, summary, rule)
         bounds = configured_initialization(config, target, summary)
         recorder = RecordedAccessTestbench(bench, output, config)
         variances = target.sigma ** 2 if proposal_mode == "target_diagonal" else None
+        if research and research.profile["mode"] == "variant":
+            proposal = research.profile["proposal"]
+            if "legacy_variance" in proposal:
+                variances = np.full(len(means), proposal["legacy_variance"])
         summary["proposal_covariance"] = proposal_mode
         algorithm = MNIS(recorder, target, len(means), means, .01, initial_failures,
                          initial_batch, estimation_batch, 13, .24, 1,
@@ -111,10 +118,15 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
                          target_fraction=target_fraction)
         algorithm.threshold = rule.threshold
         algorithm.indicator = rule.failures
+        if research:
+            research.attach(algorithm, recorder)
         os.chdir(output)
-        algorithm.start_estimate(config["budget"], strict_budget=True, skip_zero_target=True)
+        algorithm.start_estimate(research.draw_limit if research else config["budget"], strict_budget=True, skip_zero_target=True)
         status = "stopped"
-    except MNISBudgetReached as exc:
+    except InitializationInsufficient as exc:
+        status = "initialization_insufficient"
+        error = str(exc)
+    except (MNISBudgetReached, SimulationBudgetReached) as exc:
         status = "budget_stopped"
         error = str(exc)
     except (Exception, KeyboardInterrupt) as exc:
@@ -126,6 +138,10 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1)
     for i, record in enumerate(records):
         np.savez(output / f"estimation_{i:04d}.npz", **record)
     stats = weight_summary(records)
+    if research:
+        summary["research_cost"] = research.ledger(algorithm)
+        if status == "budget_stopped" and stats["numeric_status"] == "no_estimation":
+            status = "no_estimation_samples"
     summary["mnis_target_fraction"] = target_fraction
     summary["target_mixture_draws"] = sum(
         int(record["from_target"].sum()) for record in records if "from_target" in record

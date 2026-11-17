@@ -235,7 +235,13 @@ class AIS(RecordedAlgorithm, nn.Module):
         num_generate_each_norm = self.num_generate_each_norm
         sample_num_each_sphere = self.sample_num_each_sphere
         # get initial failure data
-        self.x_samples, initial_sample_total_num = self.pre_sampling(initial_failed_data_num, sample_num_each_sphere, origin_sam_bound_num=origin_sam_bound_num)
+        def legacy_initializer(count, batch):
+            return self.pre_sampling(count, batch, origin_sam_bound_num=origin_sam_bound_num)
+        research = getattr(self, "research", None)
+        if research:
+            self.x_samples, initial_sample_total_num = research.acquire(self, initial_failed_data_num, sample_num_each_sphere, legacy_initializer)
+        else:
+            self.x_samples, initial_sample_total_num = legacy_initializer(initial_failed_data_num, sample_num_each_sphere)
 
         num_mc = self.x_samples.shape[0]
         self.phase = "recheck"
@@ -261,6 +267,7 @@ class AIS(RecordedAlgorithm, nn.Module):
             norm_mixture = self._construct_mixture_norm(minnorm_point=self.x_samples, betas=np.ones([x_fail_num])/x_fail_num,
                                                          g_var_num=g_cal_num)
             # generate new samples from g(x)
+            norm_mixture = self._research_proposal(norm_mixture)
             IS_x_samples = norm_mixture.sample(n=num_generate_each_norm * initial_failed_data_num)
 
             '''

@@ -9,6 +9,7 @@ import shutil
 
 import numpy as np
 from yield_estimation.evaluation.outcomes import MeasurementRule
+from .research import InitializationInsufficient, ResearchRun, SimulationBudgetReached
 from yield_estimation.evaluation.run import (
     read_config, evaluation_circuit_options, validate_algorithm_case, build_evaluation_case, configured_initialization,
     RecordedAccessTestbench, source_revision, PARAMETER_FORMAT, functional_failure_key,
@@ -61,7 +62,7 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
                    budget_basis="submitted_requests_including_recheck",
                    config_batch_size_note="MC setting; adaptive algorithm uses algorithm_settings.json",
                    process_param_format=PARAMETER_FORMAT, settings=settings, operation=operation, **rule.metadata())
-    algorithm = recorder = None
+    algorithm = recorder = research = None
     original_dir = Path.cwd()
     error = None
     status = "incomplete"
@@ -71,9 +72,16 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
             raise RuntimeError("Xyce not found; activate openyield")
         means, target, bench = build_evaluation_case(config, options, output, summary)
         summary["nominal_parameters"] = means.tolist()
+        if "research" in config:
+            research = ResearchRun(config, output, target, summary, rule)
         bounds = configured_initialization(config, target, summary)
         recorder_class = RecordedMixedSearchTestbench if mixed_search else RecordedAccessTestbench
         recorder = recorder_class(bench, output, config)
+        if research and research.profile["mode"] == "variant":
+            proposal = research.profile["proposal"]
+            if proposal["covariance"] == "target_diagonal":
+                proposal_variance = target.sigma ** 2
+            proposal_variance = proposal_variance * proposal["std_scale"] ** 2
         if algorithm_name == "ais":
             algorithm = AIS(target, recorder, 1, False, len(means),
                             g_cal_num=proposal_variance, initial_failed_data_num=initial_failures,
@@ -95,10 +103,15 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
         algorithm.operation = operation
         algorithm.threshold = rule.threshold
         algorithm.indicator = rule.failures
+        if research:
+            research.attach(algorithm, recorder)
         os.chdir(output)
-        algorithm.start_estimate(config["budget"], strict_budget=True)
+        algorithm.start_estimate(research.draw_limit if research else config["budget"], strict_budget=True)
         status = "stopped"
-    except AlgorithmBudgetReached as exc:
+    except InitializationInsufficient as exc:
+        status = "initialization_insufficient"
+        error = str(exc)
+    except (AlgorithmBudgetReached, SimulationBudgetReached) as exc:
         status = "budget_stopped"
         error = str(exc)
     except (Exception, KeyboardInterrupt) as exc:
@@ -112,6 +125,10 @@ def run(config, output, initial_batch=2, initial_failures=1, estimation_batch=1,
     for i, record in enumerate(records):
         np.savez(output / f"estimation_{i:04d}.npz", **record)
     stats = weight_summary(records)
+    if research:
+        summary["research_cost"] = research.ledger(algorithm)
+        if status == "budget_stopped" and stats["numeric_status"] == "no_estimation":
+            status = "no_estimation_samples"
     # A partial estimate remains diagnostic only when any requested simulation failed.
     summary.update(status=status, detail=error, diagnostics=stats,
         sampling_diagnostics=sampling_diagnostics(records),

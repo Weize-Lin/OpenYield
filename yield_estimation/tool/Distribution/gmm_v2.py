@@ -532,7 +532,13 @@ class mixture_gaussian():
         pi = torch.nn.Parameter(torch.from_numpy(pi).reshape([1, k, 1]), requires_grad=False)
 
         if noramlize_diag_var == True:
-            var = torch.ones(1, k, d) * var_num
+            if np.isscalar(var_num):
+                var = torch.ones(1, k, d) * var_num
+            else:
+                diagonal = np.asarray(var_num, dtype=float)
+                if diagonal.shape != (d,) or not np.isfinite(diagonal).all() or not (diagonal > 0).all():
+                    raise ValueError("Proposal needs one positive finite variance per feature")
+                var = torch.from_numpy(diagonal).reshape(1, 1, d).repeat(1, k, 1)
             self.model = GaussianMixture(k, d, mu_init=mu, var_init=var, covariance_type="diag")
         else:
             # TODO:BUG

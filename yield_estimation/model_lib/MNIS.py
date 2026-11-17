@@ -44,6 +44,9 @@ class MNIS():
         self.low_bounds = bounds[1, :]
         self.bound = np.vstack([self.low_bounds, self.up_bounds])
     def _charge(self, count):
+        research = getattr(self, "research", None)
+        if research:
+            research.check_draw_limit(self, count)
         if self.strict_budget and self.submitted_samples + count > self.sample_budget:
             raise MNISBudgetReached(
                 f"Used {self.submitted_samples}/{self.sample_budget}; "
@@ -56,11 +59,16 @@ class MNIS():
         count = x.shape[0]
         if charge:
             self._charge(count)
-        result = self.mc_testbench.run_mc_simulation(
+        research = getattr(self, "research", None)
+        invoke = self.mc_testbench.run_mc_simulation if research is None else research.simulate
+        phase = {} if research is None else {"phase": self.phase}
+        result = invoke(**phase,
             operation=self.operation, target_row=self.target[0], target_col=self.target[1], mc_runs=count, vars=x,
         )
         if np.asarray(result[0]).size != count:
             raise RuntimeError("MNIS simulator returned an unexpected number of delays")
+        if research and research.profile["mode"] == "variant" and self.phase == "recheck" and not self.indicator(result[0]).all():
+            raise RuntimeError("Selected failed point did not fail on recheck")
         self.returned_samples += count
         return result
 
@@ -84,6 +92,9 @@ class MNIS():
         delays = np.full(len(x), np.nan)
         record = dict(samples=x.copy(), support=support.copy(), log_f=log_f.copy(),
                       log_g=log_g.copy(), delays=delays, status="pending")
+        research = getattr(self, "research", None)
+        if research:
+            research.capture_proposal(record, proposal)
         self.estimation_records.append(record)
         if support.any():
             try:
@@ -221,7 +232,12 @@ class MNIS():
         feature_num = self.feature_num
         means = self.means
         time1 = time.time()
-        self.x_fail, origin_sample_num = self._initial_sampling(initial_fail_num, initial_sample_each)
+        legacy_initializer = self._initial_sampling
+        research = getattr(self, "research", None)
+        if research:
+            self.x_fail, origin_sample_num = research.acquire(self, initial_fail_num, initial_sample_each, legacy_initializer)
+        else:
+            self.x_fail, origin_sample_num = legacy_initializer(initial_fail_num, initial_sample_each)
         self.phase = 'recheck'
         num_mc = self.x_fail.shape[0]
         y, w_pavg, _, _ = self._simulate(self.x_fail)
@@ -243,6 +259,9 @@ class MNIS():
             variances = np.abs(means) * 0.048
         else:
             raise ValueError("This dimension needs a configured MNIS proposal variance")
+        research = getattr(self, "research", None)
+        if research and research.profile["mode"] == "variant":
+            variances = variances * research.profile["proposal"]["std_scale"] ** 2
         cov_matrix = np.diag(variances)
         g_sam_norm = norm_dist(mu=min_norm, var=cov_matrix)
         g_cal_norm = norm_dist(mu=min_norm, var=cov_matrix)
@@ -262,6 +281,8 @@ class MNIS():
 
         self.phase = 'estimation'
         while strict_budget or ((max_reach_flag and FOM > 0.05) or iter_count < 15):
+            if research:
+                research.check_draw_limit(self, IS_num)
             self.label_fail = None
 
             # IS samples

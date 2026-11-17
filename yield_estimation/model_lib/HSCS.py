@@ -372,7 +372,13 @@ class HSCS(RecordedAlgorithm, nn.Module):
         now_time = time.time()
 
         # get initial failed samples
-        self.x_samples, pre_sampling_num_list = self.pre_sampling(initial_failed_data_num, sample_num_each_sphere, bound_num)
+        def legacy_initializer(count, batch):
+            return self.pre_sampling(count, batch, bound_num)
+        research = getattr(self, "research", None)
+        if research:
+            self.x_samples, pre_sampling_num_list = research.acquire(self, initial_failed_data_num, sample_num_each_sphere, legacy_initializer)
+        else:
+            self.x_samples, pre_sampling_num_list = legacy_initializer(initial_failed_data_num, sample_num_each_sphere)
         num_mc = self.x_samples.shape[0]
         self.phase = "recheck"
         self.y_samples = self._simulate(self.x_samples)
@@ -396,6 +402,7 @@ class HSCS(RecordedAlgorithm, nn.Module):
         mix_model_val = self._construct_mixture_norm(minnorm_point=min_norm_points, betas=betas, ratios=ratio,
                                                     g_var_num=g_var_num)
         
+        mix_model_val = self._research_proposal(mix_model_val)
         FOM = np.inf
         IS_time = 0
         fail_rate_list = []

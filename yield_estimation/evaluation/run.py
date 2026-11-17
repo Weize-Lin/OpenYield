@@ -53,9 +53,13 @@ FIELDS = {
 
 
 def read_config(path):
-    config = json.loads(path.read_text(encoding="utf-8"))
+    return normalize_config(json.loads(path.read_text(encoding="utf-8")))
+
+
+def normalize_config(config):
     if not isinstance(config, dict):
         raise ValueError("Evaluation configuration must be a JSON object")
+    config = dict(config)
     case = config.get("case")
     if not isinstance(case, str) or case not in CASE_OPERATIONS:
         raise ValueError(f"Supported cases: {', '.join(CASE_OPERATIONS)}")
@@ -63,7 +67,7 @@ def read_config(path):
     required = FIELDS | {MeasurementRule.threshold_key_for(operation)}
     if config.keys() - {
             "circuit", "initialization_sigma", "mnis_proposal_covariance", "hscs_search_origin",
-            "mnis_target_fraction",
+            "mnis_target_fraction", "research",
     } != required:
         raise ValueError(f"{operation} requires an optional circuit block and these fields: {', '.join(sorted(required))}")
     if config["corner"] not in ("TT", "FF", "SS", "FS", "SF"):
@@ -82,6 +86,9 @@ def read_config(path):
     for key in ("budget", "batch_size"):
         if type(config[key]) is not int or config[key] < 1:
             raise ValueError(f"{key} must be a positive integer")
+    if "research" in config:
+        from .research_settings import parse_research_context
+        config["research"] = parse_research_context(config["research"], config["budget"])
     options = evaluation_circuit_options(config)
     if "circuit" in config or config["case"] != CASE:
         config["circuit"] = options
@@ -510,6 +517,11 @@ def run_evaluation(config, output):
         summary["margin_failures"] = margin
     else:
         summary[functional_failure_key(operation)] = functional
+    if "research" in config:
+        context = config["research"]
+        summary["research_cost"] = dict(budget_unit=context["budget_unit"], xyce_cap=config["budget"],
+            algorithm_draw_cap=context["max_algorithm_draws"], phases={"estimation": dict(
+                algorithm_charged_draws=submitted, xyce_submitted=submitted, xyce_returned=returned)})
     (output / "run_summary.json").write_text(
         json.dumps(summary, indent=2, allow_nan=False) + "\n", encoding="utf-8",
     )
