@@ -40,6 +40,7 @@ tests/*.py
 !tests/test_research_experiment.py
 !tests/test_m1_estimation_contract.py
 !tests/test_adaptive_production_contract.py
+!tests/test_result_analysis.py
 size_optimization/openyield_v2/tests/*.py
 # Optional local comparison and sampling experiments.
 sram_compiler/equivalent_modeling/compare.py

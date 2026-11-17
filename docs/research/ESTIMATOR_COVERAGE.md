@@ -16,6 +16,8 @@ ACS 的具体差异包括当前均匀盒子初始化、缺少方向分簇、用�
 
 [M0/M1 验收](../../yield_estimation/evaluation/M0_M1_ACCEPTANCE.md) · [M2 离线证据](mnis_selection/README.md) · [M3 公开测试](../../tests/test_adaptive_production_contract.py)
 
+M3 的解析输入固定：AIS 的保持裕量样本全部失效，HSCS 的读样本全部失效，辅助写全部满足搜索门限，且 HSCS 只处理一个簇。验收覆盖这些条件下的记录、加权、更新和停止。通过与失效混合、多失效区域及多簇搜索仍待测试。
+
 ## M3 真实输出摘要
 
 两个 runner 使用生产分布和 `proposal_json` 快照。用 SciPy 正态与截断正态计算原工艺密度，再按保存的分量系数与混合比例独立算提议密度。每轮正式估计以该轮真实提议计算贡献，用全部已完成的正式行作分母。
