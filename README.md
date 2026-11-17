@@ -62,7 +62,9 @@ Legacy importance-sampling estimators are retained in [`yield_estimation/`](yiel
 
 ### Reproduce a yield comparison
 
-The [6T hold-SNM study](yield_estimation/evaluation/HOLD_SNM_STUDY.md) runs five estimators on the same cell and failure threshold. It includes an independent MC reference, eight seeds per method, and a ledger of the simulator calls charged to each result.
+Start with the [first-use guide](docs/research/YIELD_QUICKSTART.md) to install the environment, replay a public SRAM yield comparison offline, validate a custom configuration, and read the results.
+
+The [published 6T hold-SNM case](https://github.com/Weize-Lin/OpenYield/releases/tag/hold-snm-workflow-bd09101) includes the independent MC reference, run records, and an offline replay. The [earlier hold-SNM study](yield_estimation/evaluation/HOLD_SNM_STUDY.md) documents the historical experiment.
 
 ## Validate changes
 
