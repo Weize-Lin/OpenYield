@@ -78,6 +78,8 @@ analytic reference probabilities, and explicit settings:
 python -m unittest discover -s tests -p test_evaluation_weight_contract.py -v
 ```
 
+For configurable algorithm experiments, see [Research experiment configuration](yield_estimation/evaluation/RESEARCH_EXPERIMENT.md). The JSON and Python entry point shares one circuit and failure rule across estimators, with per-run budgets and proposal evidence.
+
 The other regression and waveform Python scripts are retained in local, ignored `tests/` workspaces. If you have them, run `python -m pytest -q tests size_optimization/openyield_v2/tests`; some equivalent-model checks need Xyce. The tracked [SPICE manifests](tests/spice/README.md) describe the unfinished V2.2.5 screen; no V2.2.5 or V2.2.6 full screen has completed. Passing software tests or `.MEASURE` cards alone does not establish read, write, retention, sense, and recovery correctness.
 
 ## Guides and project map

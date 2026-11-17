@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "experiment": {
+    "case": "sram_6t_hold_snm",
+    "corner": "TT",
+    "vdd": 1.0,
+    "temperature_c": 27,
+    "relative_std": 0.05,
+    "u0_positive": true,
+    "threshold_mv": 340,
+    "batch_size": 4
+  },
+  "budget_per_algorithm": 22,
+  "budget_unit": "xyce_samples",
+  "max_algorithm_draws": 24,
+  "seeds": [9101],
+  "estimators": [
+    { "id": "direct-mc", "algorithm": "mc", "mode": "reference" },
+    {
+      "id": "mnis-standardized",
+      "algorithm": "mnis",
+      "mode": "variant",
+      "initial_batch": 8,
+      "estimation_batch": 2,
+      "estimation_draws": 4,
+      "initialization": {
+        "method": "target", "min_failed_candidates": 6, "max_simulations": 12
+      },
+      "center_selection": { "rule": "nearest_standardized" },
+      "proposal": { "covariance": "target_diagonal", "std_scale": 0.8, "target_fraction": 0.25 }
+    }
+  ]
+}
