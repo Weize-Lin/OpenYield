@@ -1,0 +1,272 @@
+{
+  "status": "passed_preflight_not_simulated",
+  "execution_revision": "56320b44784c3334af16645a430de1865bb41d9f",
+  "source_checkout": "/home/shammy/projects/OpenYield-acs-qualified-56320b4",
+  "source_status": "",
+  "raw_config_sha256": "92585fc3ed15913333e4d7035fe9688178794f140555dbd334156f308144a142",
+  "frozen_config_sha256": "10bb1836357ad38a67f7597927833282976f23ad1ed47a25995852e35e3471a3",
+  "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+  "solver": {
+    "xyce": "/home/shammy/miniconda3/envs/openyield/bin/Xyce",
+    "xyce_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+    "xyce_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource"
+  },
+  "target": {
+    "resolved_circuit": {
+      "array": [
+        1,
+        1,
+        false
+      ],
+      "corner": "TT",
+      "cell_type": "SRAM_6T_CELL",
+      "cell_6t": null,
+      "operation": "hold_snm",
+      "variation_mode": "custom",
+      "real_cell_mode": 0,
+      "w_rc": true,
+      "target": [
+        0,
+        0
+      ],
+      "interconnect_config": null,
+      "vdd": 1,
+      "temperature_c": 27
+    },
+    "operation": "hold_snm",
+    "target": [
+      0,
+      0
+    ],
+    "relative_std": 0.05,
+    "u0_positive": true,
+    "sampling_source": "numpy_independent_positive_u0",
+    "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+    "nominal_parameters_per_cell": [
+      0.4106,
+      0.045,
+      -0.13,
+      0.4106,
+      0.045,
+      -0.13,
+      0.4106,
+      0.045,
+      -0.13,
+      -0.3842,
+      0.02,
+      -0.126,
+      0.4106,
+      0.045,
+      -0.13,
+      -0.3842,
+      0.02,
+      -0.126
+    ],
+    "bitcell_parameter_order": [
+      "PGL.vth0",
+      "PGL.u0",
+      "PGL.voff",
+      "PGR.vth0",
+      "PGR.u0",
+      "PGR.voff",
+      "PDL.vth0",
+      "PDL.u0",
+      "PDL.voff",
+      "PUL.vth0",
+      "PUL.u0",
+      "PUL.voff",
+      "PDR.vth0",
+      "PDR.u0",
+      "PDR.voff",
+      "PUR.vth0",
+      "PUR.u0",
+      "PUR.voff"
+    ],
+    "driver_sizes": {
+      "rows": 1,
+      "cols": 1,
+      "cell_type": "SRAM_6T_CELL",
+      "mux": false,
+      "pre": 1.0,
+      "wd_in": 1.0,
+      "wd_out": 2.0,
+      "wl_inv": 1.0,
+      "wl_nand": 1.0,
+      "loads": {
+        "pre_load": 9.0,
+        "wen_load": 16.75,
+        "wl_load": 8.4,
+        "num_sa": 2,
+        "wenb_scale": 1,
+        "sen_load": 15.75,
+        "iso_load": 16.0,
+        "sen_effort": 3.0,
+        "access_load": 3.75
+      },
+      "source": "lookup",
+      "key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+      "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+      "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+      "dec_inv": 1.0,
+      "replica_matched": true,
+      "replica_k": 1,
+      "dc_stages": 9,
+      "effort_buffers": true,
+      "canonical_read": true,
+      "replica_precharge_guard": true,
+      "replica_nmos_models": [
+        "NMOS_VTG",
+        "NMOS_VTG"
+      ],
+      "replica_nmos_widths": [
+        2.05e-07,
+        1.35e-07
+      ],
+      "replica_pmos_model": "PMOS_VTG",
+      "replica_pmos_width": 9e-08,
+      "replica_length": 5e-08,
+      "qualified_context_key": "",
+      "area_precharge_width": 2.7e-07,
+      "area_wordline_width": 2.7e-07,
+      "area_senseamp_width": 5.4e-07,
+      "rule_version": "v2.0.5-local-1",
+      "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+      "size_class": "rows<=32/cols<=4",
+      "extrapolated": false,
+      "precharge_guard_stages": 4,
+      "precharge_off_guard": true,
+      "precharge_off_guard_stages": 4,
+      "precharge_off_tau": 1.046e-13,
+      "control_architecture": "v2.2.0-high-access",
+      "enable_off_tau": 4.0891250000000005e-13,
+      "isolation_tau": 4.0835e-13
+    },
+    "timing": {
+      "t_period": 9e-09,
+      "low_read": 3.6e-09,
+      "low_write": 3.6e-09,
+      "high": 3.6e-09,
+      "margin": 0.25,
+      "source": "lookup",
+      "driver_key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+      "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+      "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+      "table_version": "v2.2.3-timing-1",
+      "size_class": "rows<=32/cols<=4",
+      "extrapolated": false,
+      "qualified": false,
+      "budget": "shared"
+    },
+    "interconnect": {
+      "mode": "distributed",
+      "cell_pin_rc": false,
+      "wl": {
+        "layer": "M2-reference",
+        "pitch_m": 6e-07,
+        "width_m": 1e-07,
+        "sheet_resistance_ohm": 0.16666666666666666,
+        "capacitance_f_per_m": 1.6666666666666666e-10,
+        "sections_per_half_pitch": 1
+      },
+      "bl": {
+        "layer": "M3-reference",
+        "pitch_m": 6e-07,
+        "width_m": 1e-07,
+        "sheet_resistance_ohm": 0.16666666666666666,
+        "capacitance_f_per_m": 1.6666666666666666e-10,
+        "sections_per_half_pitch": 1
+      }
+    },
+    "equivalent": {
+      "mode": 0,
+      "approximate": false
+    },
+    "measurement": "hold_snm",
+    "failure_operator": "<",
+    "outcome_rule_version": "snm_outcomes_v1",
+    "threshold_field": "threshold_mv",
+    "threshold": 327.65
+  },
+  "reference_release": "hold-snm-workflow-bd09101",
+  "reference_zip_sha256": "6efaafc80290d8be3bb3e0fc535b79080b35824740450c98164ca8c915346970",
+  "checked_bundle_files": 140,
+  "references": [
+    {
+      "seed": 8311,
+      "path": "/home/shammy/projects/OpenYield-oct01/outputs/acs_sram_preflight_56320b4_final/published_evidence/hold_workflow_bd09101/reference/mc/seed_8311/mc",
+      "sha256": "ff46bb28276473040a64414add4cdc362e30b08ff01125dc703812f1de9b9d22",
+      "measurement_sha256": "856c83686c84a0c7addb84c44c6e9cde7377e3a1c85a7b97e176680f448b1cd1",
+      "failures": 38,
+      "samples": 256,
+      "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+      "target_differences": [],
+      "solver_path_same": false
+    },
+    {
+      "seed": 8312,
+      "path": "/home/shammy/projects/OpenYield-oct01/outputs/acs_sram_preflight_56320b4_final/published_evidence/hold_workflow_bd09101/reference/mc/seed_8312/mc",
+      "sha256": "b11ce70ea63682be3ec89c19af9805f9ab664884bbc94c36884d7de84f593205",
+      "measurement_sha256": "ee8d46d754d8228d6090bbe788dca3b3bef161123539f4f426ed9b3011a5a264",
+      "failures": 54,
+      "samples": 256,
+      "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+      "target_differences": [],
+      "solver_path_same": false
+    },
+    {
+      "seed": 8313,
+      "path": "/home/shammy/projects/OpenYield-oct01/outputs/acs_sram_preflight_56320b4_final/published_evidence/hold_workflow_bd09101/reference/mc/seed_8313/mc",
+      "sha256": "1c1d77d3bcd3f495f4892813d94ae84717cd459ee73413b645544e6312162496",
+      "measurement_sha256": "a75eab3caec5266c367e0859669a5e4dccf78286c4da12f1be69dfe720ad9dbf",
+      "failures": 33,
+      "samples": 256,
+      "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+      "target_differences": [],
+      "solver_path_same": false
+    },
+    {
+      "seed": 8314,
+      "path": "/home/shammy/projects/OpenYield-oct01/outputs/acs_sram_preflight_56320b4_final/published_evidence/hold_workflow_bd09101/reference/mc/seed_8314/mc",
+      "sha256": "f2cda274b06938d1b1655578582b03eed0938b4c2cd64ce386aff1d87f8498fe",
+      "measurement_sha256": "c74429b8d85d5ae8a83444c4b3d0cae84be645c76c4b42e62c44ff816f58f022",
+      "failures": 42,
+      "samples": 256,
+      "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+      "target_differences": [],
+      "solver_path_same": false
+    }
+  ],
+  "reference_failures": 167,
+  "reference_samples": 1024,
+  "reference_estimate": 0.1630859375,
+  "reference_interval": [
+    0.14172433977824178,
+    0.18696590317841077
+  ],
+  "reference_is_exact_truth": false,
+  "target_process_source_sha256": "b946cb484d9883a898fdea9e1f735144055d36727f7cd105c688a8cbeb9bfb28",
+  "electrical_model_solver_wrapper_sources_unchanged": true,
+  "reference_source_revision": "bd09101003e654bd41b090949b5afdc2a6cd2fc2",
+  "code_revision_same": false,
+  "cross_revision_reference_basis": "equal resolved target, model and solver fingerprints; unchanged target sampler and electrical sources",
+  "budgets": {
+    "planned_tasks": 16,
+    "max_unique_submissions": 2112,
+    "max_solver_attempted_rows": 6336,
+    "concurrent_tasks": 1,
+    "task_timeout_seconds": 180,
+    "experiment_timeout_seconds": 1800,
+    "task_kill_grace_seconds": 10,
+    "experiment_kill_grace_seconds": 30,
+    "order": "seed_major"
+  },
+  "dependencies": {
+    "python": "3.9.19",
+    "numpy": "1.26.4",
+    "scipy": "1.13.1",
+    "torch": "2.8.0+cpu"
+  },
+  "circuit_solver_calls": 0,
+  "new_parameter_samples": 0,
+  "solver_version_queries": 1
+}

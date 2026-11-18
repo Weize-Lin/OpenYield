@@ -1,0 +1,11 @@
+{
+  "package_entries_archived": 174,
+  "package_entries_current": 174,
+  "package_entries_equal": true,
+  "published_solver_path": "recorded-environment/bin/Xyce",
+  "runtime_solver_path": "/home/shammy/miniconda3/envs/openyield/bin/Xyce",
+  "solver_paths_are_equal": false,
+  "solver_binary_hash_and_version_equal": true,
+  "reference_is_cross_revision": true,
+  "execution_revision": "56320b44784c3334af16645a430de1865bb41d9f"
+}

@@ -142,3 +142,5 @@ CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PW
 下一项见 [SRAM 初始化对照预案](SRAM_PLAN.md)。它固定相同仿射映射和正式提议，只比较初始化；目前尚未接入球面选项，也没有启动电路仿真。
 
 [球面接入与离线检查](CONNECTION_REPORT.md) 说明正式入口和超时处理。接入完成不等于已证明球面改善 SRAM，真实实验尚未启动。
+
+[真实对照启动前检查及完整资源范围](LAUNCH_PREFLIGHT.md)。预检不等于已经启动电路。

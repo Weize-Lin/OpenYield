@@ -1,0 +1,12 @@
+[
+  {
+    "field": "target.driver_sizes.replica_nmos_models",
+    "memory_type": "tuple",
+    "json_type": "list"
+  },
+  {
+    "field": "target.driver_sizes.replica_nmos_widths",
+    "memory_type": "tuple",
+    "json_type": "list"
+  }
+]
