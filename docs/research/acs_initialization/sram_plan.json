@@ -1,0 +1,99 @@
+{
+  "status": "proposal_not_executable_not_authorized_to_simulate",
+  "reviewed_source": "98660f1b7a1c3b05d92a0d21a9070f630d46c42f",
+  "target": {
+    "case": "sram_6t_hold_snm",
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 27,
+    "relative_std": 0.05,
+    "u0_positive": true,
+    "batch_size": 8,
+    "threshold_mv": 327.65,
+    "circuit": {
+      "array": [
+        1,
+        1,
+        false
+      ],
+      "target": [
+        0,
+        0
+      ],
+      "cell_type": "SRAM_6T_CELL",
+      "cell_6t": null,
+      "operation": "hold_snm",
+      "variation_mode": "custom",
+      "real_cell_mode": 0,
+      "w_rc": true,
+      "interconnect_config": null
+    }
+  },
+  "control": "process-scaled physical box; not historical SRAM results reused as a control",
+  "mapping": "x = nominal + sigma*z; sigma=abs(nominal)*0.05; same affine mapping in both arms",
+  "dimension": 18,
+  "sphere_radii": [
+    1.0,
+    2.0,
+    3.0,
+    4.0
+  ],
+  "box_radius_sigma": 4.0,
+  "initialization_batch": 16,
+  "initialization_cap": 64,
+  "required_failures": 4,
+  "retention": "first four failures in completed-batch discovery order",
+  "on_insufficient": "stop_with_no_estimate",
+  "recheck": "all four selected points, charged to the same task",
+  "estimation_batch": 8,
+  "formal_proposal": {
+    "covariance": "legacy",
+    "legacy_variance": 1e-05,
+    "std_scale": 1,
+    "target_fraction": 0
+  },
+  "initialization_support_lower_fraction": 0.8,
+  "formal_support": "existing behavior: any nonpositive u0 makes the whole batch unresolved; no measurement, redraw or fabricated label",
+  "budget_per_task": {
+    "max_algorithm_draws": 132,
+    "max_xyce_submitted_rows": 132
+  },
+  "seeds": [
+    720101,
+    720102,
+    720103,
+    720104,
+    720105,
+    720106,
+    720107,
+    720108
+  ],
+  "arms": [
+    "scaled_box",
+    "sphere_surface"
+  ],
+  "total_planned_tasks": 16,
+  "max_unique_submitted_rows": 2112,
+  "max_solver_attempted_rows_with_existing_retries": 6336,
+  "resource_limits": {
+    "concurrent_tasks": 1,
+    "per_task_wall_seconds": 180,
+    "per_task_kill_grace_seconds": 10,
+    "experiment_wall_seconds": 1800,
+    "experiment_kill_grace_seconds": 30
+  },
+  "automatic_relaunch": false,
+  "reference": {
+    "release": "hold-snm-workflow-bd09101",
+    "expected_count": 1024,
+    "reuse_only_after_frozen_target_and_model_solver_identity_check": true,
+    "exact_truth": false,
+    "new_reference_simulations_authorized": false
+  },
+  "implementation_pending": [
+    "sphere initializer in shared acquisition layer, plus schema validation and public CPU contracts",
+    "enforced task and overall process-group timeouts with all planned tasks retained",
+    "clean final-source preflight and reference identity/hash checks",
+    "explicit authorization of real SRAM resource consumption"
+  ]
+}
