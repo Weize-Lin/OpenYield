@@ -27,3 +27,9 @@ The [SPICE guide](spice/README.md) describes the optional local waveform runner 
 | `spice/v224_negative_cases.json` | 6 negative controls |
 
 The V2.2.4 manifests were partially run as an unfinished V2.2.5 screen, and 256x256 still lacks a working operating point. The [V2.2.5 simulation summary](../docs/V2_2_5_SIMULATION_SUMMARY.md) records the stopped campaign and its old model hashes; the [V2.2.2 record](../docs/design/PHASED_CONTROL_V2_2_2.md) describes the last assembled screen, which certifies only that older tree.
+
+The [local web contracts](test_local_web.py) exercise HTTP validation and task orchestration with replacement processes, without Xyce.
+
+```bash
+python -m unittest discover -s tests -p test_local_web.py -v
+```

@@ -51,3 +51,5 @@ size_optimization/smac3_output/
 size_optimization/smac3_output
 size_optimization/sim/
 size_optimization/tongji_results_*.csv
+
+!tests/test_local_web.py

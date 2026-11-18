@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>OpenYield · 良率测评</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">OpenYield</a><span>本地科研工具</span
+      ><a
+        href="https://github.com/Weize-Lin/OpenYield/releases/tag/hold-snm-workflow-bd09101"
+        target="_blank"
+        rel="noreferrer"
+        >公开流程案例 ↗</a
+      >
+    </header>
+    <main>
+      <h1>良率算法测评</h1>
+      <p class="intro">配置同一工况，查看各方法的估计、成本与告警。</p>
+      <p class="scope">
+        真实流程验收覆盖 1×1 6T
+        保持裕量。其他组合的配置支持与实测验证范围请分别核对。
+      </p>
+      <nav aria-label="页面步骤">
+        <a href="#configuration">配置</a><a href="#validation">校验</a
+        ><a href="#execution">运行</a><a href="#results">结果</a>
+      </nav>
+      <div class="workspace">
+        <section id="configuration">
+          <h2>实验配置</h2>
+          <p class="hint">
+            初始值来自公开流程案例，其中四种 IS
+            配置出现明显低估。可用来演示完整操作。
+          </p>
+          <form id="settings">
+            <div class="fields">
+              <label
+                >单元类型<select id="cell">
+                  <option value="6t">6T</option>
+                  <option value="10t">10T</option>
+                </select></label
+              >
+              <label
+                >测量操作<select id="operation">
+                  <option value="hold_snm">保持裕量</option>
+                  <option value="read_snm">读裕量</option>
+                  <option value="write_snm">写裕量</option>
+                  <option value="read">读延迟</option>
+                  <option value="write">写延迟</option>
+                  <option value="read_write">读写输出周期</option>
+                </select></label
+              >
+              <label
+                >工艺角<select id="corner">
+                  <option>TT</option>
+                  <option>FF</option>
+                  <option>SS</option>
+                  <option>FS</option>
+                  <option>SF</option>
+                </select></label
+              >
+              <label
+                >电压 / V<input
+                  id="vdd"
+                  type="number"
+                  min="0.01"
+                  step="any"
+                  value="1"
+                  required
+              /></label>
+              <label
+                >温度 / ℃<input
+                  id="temperature"
+                  type="number"
+                  step="any"
+                  value="27"
+                  required
+              /></label>
+              <label
+                >相对标准差<input
+                  id="std"
+                  type="number"
+                  min="0.000001"
+                  step="any"
+                  value="0.05"
+                  required
+              /></label>
+              <label
+                >阵列行数<input
+                  id="rows"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="1"
+                  required
+              /></label>
+              <label
+                >阵列列数<input
+                  id="cols"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="1"
+                  required
+              /></label>
+              <label
+                >目标行 / 从 0 开始<input
+                  id="target-row"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value="0"
+                  required
+              /></label>
+              <label
+                >目标列 / 从 0 开始<input
+                  id="target-col"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value="0"
+                  required
+              /></label>
+              <label class="check"
+                ><input id="mux" type="checkbox" />启用列复用</label
+              >
+              <label class="check"
+                ><input id="rc" type="checkbox" checked />启用局部 RC</label
+              >
+              <label
+                >工艺抽样<select id="variation">
+                  <option value="custom">算法提供样本（custom）</option>
+                  <option value="nominal">名义点（nominal）</option>
+                  <option value="per-device">Xyce 逐器件抽样</option>
+                  <option value="shared">Xyce 共用模型抽样</option>
+                </select></label
+              >
+              <label
+                >阵列模型<select id="equivalent">
+                  <option value="0">完整阵列 · 0</option>
+                  <option value="1">等效 · 保留目标行列</option>
+                  <option value="2">等效 · 保留目标行</option>
+                  <option value="3">等效 · 保留目标列</option>
+                  <option value="4">等效 · 保留目标单元</option>
+                </select></label
+              >
+              <label
+                ><span id="threshold-label">裕量下限 / mV</span
+                ><input
+                  id="threshold"
+                  type="number"
+                  min="0.000001"
+                  step="any"
+                  value="327.65"
+                  required
+              /></label>
+              <label
+                >每方法每种子预算<input
+                  id="budget"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="48"
+                  required
+              /></label>
+              <label
+                >算法抽样上限<input
+                  id="draw-cap"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="48"
+                  required
+              /></label>
+              <label
+                >直接 MC 每批条数<input
+                  id="batch"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="8"
+                  required
+              /></label>
+              <label class="wide"
+                >种子 / 逗号分隔<input
+                  id="seeds"
+                  value="9101, 9102, 9103, 9104, 9105, 9106, 9107, 9108"
+                  required
+              /></label>
+            </div>
+            <fieldset>
+              <legend>启用算法</legend>
+              <div id="algorithms" class="algorithms"></div>
+            </fieldset>
+            <label class="check"
+              ><input id="mixed" type="checkbox" />启用 HSCS
+              历史辅助写搜索</label
+            >
+            <p id="mixed-note" class="hint">
+              仅在读测评时需要。辅助写发生在末行末列，沿用读门限数值作搜索条件并占用预算。方法合理性有待单独研究。
+            </p>
+            <button type="submit" class="secondary">将表单写入 JSON</button>
+          </form>
+        </section>
+        <section id="validation">
+          <h2>校验将要执行的配置</h2>
+          <p class="hint">
+            JSON 是提交给现有测评入口的完整输入。初始化、提议分布、6T
+            尺寸与互连可在这里编辑。
+          </p>
+          <div class="toolbar">
+            <label class="file-label"
+              >导入 JSON<input
+                id="import"
+                type="file"
+                accept=".json,application/json" /></label
+            ><button id="export" class="secondary">导出 JSON</button>
+          </div>
+          <label for="json">实验 JSON</label
+          ><textarea id="json" spellcheck="false" rows="21"></textarea>
+          <button id="validate" class="primary">校验配置</button>
+          <div
+            id="validation-message"
+            class="feedback"
+            role="status"
+            aria-live="polite"
+          >
+            校验后可查看实际生效配置与预算。
+          </div>
+          <details id="resolved">
+            <summary>解析后的完整配置</summary>
+            <pre id="resolved-json"></pre>
+          </details>
+          <div id="execution">
+            <h2>启动实验</h2>
+            <label for="references">独立参考目录 / 每行一个，可留空</label
+            ><textarea
+              id="references"
+              rows="2"
+              placeholder="包含 run_summary.json 的目录"
+            ></textarea>
+            <label
+              >整轮限时 / 秒<input
+                id="time-limit"
+                type="number"
+                min="1"
+                max="3600"
+                value="600"
+            /></label>
+            <p class="hint">
+              校验成功仅表示程序接受配置。运行按钮将调用
+              Xyce；超时终止后保留已写入的任务和结果。
+            </p>
+            <button id="run" class="primary" disabled>运行已校验配置</button>
+          </div>
+        </section>
+      </div>
+      <section id="results">
+        <div class="section-heading">
+          <h2>结果与运行记录</h2>
+          <span id="job-state" role="status" aria-live="polite">等待任务</span>
+        </div>
+        <div class="offline">
+          <label
+            >已有分析清单路径<input
+              id="manifest"
+              placeholder="analysis_manifest.json 的完整路径" /></label
+          ><button id="analyze" class="secondary">读取并分析已有结果</button>
+        </div>
+        <p class="hint">
+          可以先打开公开包的
+          comparison/analysis_manifest.json，查看留存的估计、成本和低权重告警。
+        </p>
+        <p id="job-directory" class="path"></p>
+        <div id="download-links" class="toolbar"></div>
+        <div id="result-content">
+          <p class="empty">
+            运行或读取一份分析清单后，这里会显示全部方法和种子的记录。
+          </p>
+        </div>
+        <details>
+          <summary>运行输出</summary>
+          <pre id="run-log">尚无运行输出。</pre>
+        </details>
+      </section>
+      <p class="footer">
+        当前界面提供描述性比较。论文一致性、其他工况的效果与通用算法排名需要各自的研究证据。
+      </p>
+    </main>
+  </body>
+</html>

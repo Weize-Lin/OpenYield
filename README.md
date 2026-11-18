@@ -62,6 +62,8 @@ Legacy importance-sampling estimators are retained in [`yield_estimation/`](yiel
 
 ### Reproduce a yield comparison
 
+Use the [local yield interface](docs/research/LOCAL_WEB.md) to edit and validate a configuration, run the existing experiment entry point, and inspect estimates, costs, warnings and independent references. See the [configuration map](docs/research/CONFIGURATION_MAP.md) for supported inputs and their limits.
+
 Start with the [first-use guide](docs/research/YIELD_QUICKSTART.md) to install the environment, replay a public SRAM yield comparison offline, validate a custom configuration, and read the results.
 
 The [published 6T hold-SNM case](https://github.com/Weize-Lin/OpenYield/releases/tag/hold-snm-workflow-bd09101) includes the independent MC reference, run records, and an offline replay. The [earlier hold-SNM study](yield_estimation/evaluation/HOLD_SNM_STUDY.md) documents the historical experiment.
