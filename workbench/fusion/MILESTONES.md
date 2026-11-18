@@ -173,7 +173,7 @@
 - 在 WSL 用 git worktree 另开 `/home/laiqirui/fusion-push`（不改动正在跑仿真的固定副本），基于 `origin/codex/benchmark-oct01`（=312f137）建分支 `fusion-workbench`，提交 `0a07ea5`（137 文件，仅新增 workbench/，不改上游任何文件）。
 - 推送未完成：WSL 到 GitHub 连接时通时断（ls-remote 有时成功有时挂起），且未配置 Git 凭据（credential.helper 为空、无 gh）。多次 push 未能在远端建立分支。已停止重试，避免无效占用。
 - 本地 Windows 工作仓库提交 `a04fa27` 仍为日常开发副本；WSL worktree 提交 `0a07ea5` 为待推送快照。两者内容一致（workbench/fusion 即 Windows fusion 目录内容）。
-- 待用户解决网络/凭据后推送：在 `/home/laiqirui/fusion-push` 执行 `git push -u origin fusion-workbench`；或用户自行在其有凭据的环境推送。推送后可开 PR 到 codex/benchmark-oct01，并用 workbench/fusion/demo_site 开启 GitHub Pages 作只读演示。
+- 用户已选择“自己在终端 push”。待推送命令：`wsl -d Ubuntu` → `cd ~/fusion-push` → `git push -u origin fusion-workbench`。推送后可开 PR 到 codex/benchmark-oct01，并用 workbench/fusion/demo_site 开启 GitHub Pages 作只读演示。助手不再代持凭据或重试推送。
 
 ### 仍未闭合（见 ROADMAP）
 
