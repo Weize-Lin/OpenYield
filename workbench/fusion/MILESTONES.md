@@ -175,6 +175,15 @@
 - 本地 Windows 工作仓库提交 `a04fa27` 仍为日常开发副本；WSL worktree 提交 `0a07ea5` 为待推送快照。两者内容一致（workbench/fusion 即 Windows fusion 目录内容）。
 - 用户已选择“自己在终端 push”。待推送命令：`wsl -d Ubuntu` → `cd ~/fusion-push` → `git push -u origin fusion-workbench`。推送后可开 PR 到 codex/benchmark-oct01，并用 workbench/fusion/demo_site 开启 GitHub Pages 作只读演示。助手不再代持凭据或重试推送。
 
+## F9 · 兼容性核对（回应林同学“push 前让 AI 看最新一版是否兼容”）
+
+- 协作分支 `codex/benchmark-oct01` 的 tip 经 `git rev-parse origin/codex/benchmark-oct01` 确认 = `312f137e9ab960f1178f4991d9bf4675575e2f01`，与本工作台钉住的 REVISION 完全一致。本分支仅新增 `workbench/`，不改上游任何文件，故对该分支**无合并冲突、接口兼容**。
+- 仓库默认分支 HEAD 为另一提交 `ccd45b4a127402378c1e61d8596da066993ca52c`（“最新一版”）。因 WSL↔GitHub 网络时通时断，本轮未能 fetch 该提交，**对默认分支最新版的兼容尚未验证**，不做猜测性结论。
+- 已知的两个兼容边界（设计使然，非缺陷）：
+  1. `server.py` 将 REVISION 硬钉为 312f137，HEAD 不同即拒跑——保证证据与代码版本对应；因此本工作台默认不自动跟随最新上游。
+  2. 前端/服务端依赖上游分析字段（cost.wall_seconds、methods 分组、groups/runs 结构、normalize_experiment 配置 schema）。若最新版改动这些，需重新验证并适配。
+- 认证“支持最新版”的做法：网络稳定后把最新提交 fetch 到**独立副本**（不动现有固定副本），在其中跑本仓库 13 项后端测试 + 浏览器回归；通过后再把 REVISION 提升为新值并记录证据。未通过前不宣称兼容最新。
+
 ### 仍未闭合（见 ROADMAP）
 
 评分对象与正式题库待老师确认；TabPFN/ GPU 常驻未做；电路功能自动验收未做；组里服务器部署未做；任意新算法代码上传未做。这些是下一阶段增量，不否定本轮已验收能力。
