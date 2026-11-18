@@ -1,0 +1,10 @@
+{
+  "git_revision": "515d55d8323535f4c3ef3ed999ec704ee4ff446c",
+  "tracked_status": "",
+  "protocol_sha256": "5824d457f685a95eb44398a47c096b9e293cbc60a586f04d229117a488f28fa2",
+  "script_sha256": "d3e1800a2fbcf9e8f102118078d8635924c96fa62efa109b1a1e0a647e61c149",
+  "python": "3.9.19",
+  "numpy": "1.26.4",
+  "scipy": "1.13.1",
+  "torch": "2.8.0+cpu"
+}
