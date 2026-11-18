@@ -1,0 +1,15 @@
+OpenYield Fusion
+Copyright 2026 the OpenYield Fusion contributors.
+
+This product includes software developed as part of OpenYield
+(https://github.com/ShenShan123/OpenYield), licensed under Apache-2.0.
+
+The experiment execution and result analysis core
+(yield_estimation/evaluation/*) is used unmodified from the collaboration
+branch https://github.com/Weize-Lin/OpenYield at commit
+312f137e9ab960f1178f4991d9bf4675575e2f01.
+
+This repository adds only the web workbench (server.py, public/), multi-circuit
+suite orchestration, evidence/dataset endpoints, demo bundling (tools/), tests
+and documentation. It does not modify upstream algorithms, device models or
+failure criteria.

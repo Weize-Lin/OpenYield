@@ -1,0 +1,36 @@
+{
+  "id": "2813d9a21da74ff5b194620d093fc576",
+  "status": "complete",
+  "groups": [
+    {
+      "id": "circuit0-experiment",
+      "name": "1×1 · 保持裕量",
+      "runs": 6,
+      "methods": [
+        {
+          "id": "mnis-base",
+          "planned": 3,
+          "available": 3
+        },
+        {
+          "id": "mnis-mixed-50",
+          "planned": 3,
+          "available": 3
+        }
+      ]
+    },
+    {
+      "id": "circuit1-experiment",
+      "name": "3×2 · 读延迟",
+      "runs": 1,
+      "methods": [
+        {
+          "id": "mc",
+          "planned": 1,
+          "available": 1
+        }
+      ]
+    }
+  ],
+  "returned": 76
+}

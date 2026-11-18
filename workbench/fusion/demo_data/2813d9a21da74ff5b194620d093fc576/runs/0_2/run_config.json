@@ -1,0 +1,63 @@
+{
+  "case": "sram_6t_hold_snm",
+  "corner": "TT",
+  "vdd": 1,
+  "temperature_c": 27,
+  "relative_std": 0.05,
+  "u0_positive": true,
+  "batch_size": 4,
+  "threshold_mv": 327.65,
+  "circuit": {
+    "array": [
+      1,
+      1,
+      false
+    ],
+    "corner": "TT",
+    "cell_type": "SRAM_6T_CELL",
+    "cell_6t": null,
+    "operation": "hold_snm",
+    "variation_mode": "custom",
+    "real_cell_mode": 0,
+    "w_rc": true,
+    "target": [
+      0,
+      0
+    ],
+    "interconnect_config": null,
+    "vdd": 1,
+    "temperature_c": 27
+  },
+  "seed": 9103,
+  "budget": 12,
+  "research": {
+    "budget_unit": "xyce_samples",
+    "max_algorithm_draws": 12,
+    "estimator": {
+      "id": "mnis-base",
+      "algorithm": "mnis",
+      "mode": "variant",
+      "initial_batch": 4,
+      "initial_failures": 1,
+      "estimation_batch": 1,
+      "initialization": {
+        "method": "uniform_box",
+        "radius_sigma": 3,
+        "max_simulations": 10,
+        "min_failed_candidates": 1,
+        "on_insufficient": "stop"
+      },
+      "center_selection": {
+        "rule": "discovery_order"
+      },
+      "proposal": {
+        "covariance": "target_diagonal",
+        "std_scale": 1,
+        "target_fraction": 0
+      }
+    }
+  },
+  "initialization_sigma": 3.0,
+  "mnis_proposal_covariance": "target_diagonal",
+  "mnis_target_fraction": 0
+}
