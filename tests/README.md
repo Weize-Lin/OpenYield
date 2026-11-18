@@ -39,3 +39,14 @@ The dependency-free browser form regression exercises the production JavaScript 
 ~~~bash
 node tests/test_local_form.cjs
 ~~~
+
+The [ACS initialization study contracts](test_acs_initialization_study.py) check
+surface coordinates, positive-mobility mapping and the real production ACS
+budget/estimation path with analytic measurements. No Xyce or GPU is used.
+The [frozen protocol](../docs/research/acs_initialization/PROTOCOL.md) separates
+project choices from claims about the paper.
+
+```bash
+CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  python -m unittest discover -s tests -p test_acs_initialization_study.py -v
+```
