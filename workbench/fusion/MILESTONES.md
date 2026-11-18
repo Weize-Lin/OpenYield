@@ -165,6 +165,16 @@
 - 操作手册扩充：三种运行形态、电路证据页签、建模数据集、多电路套件、耗时列；图增至 6 张；能力/边界清单更新。PDF 重新生成。
 - 本轮新增真实仿真仅套件 76 条；六轮 72 条为 F5 已计。重复回归只读已有实验。
 
+### 推送状态（截至本轮结束：提交已就绪，推送未完成）
+
+- 用户选择推送到林同学仓库 `Weize-Lin/OpenYield` 的新分支，并参考其 `dev/` 既往贡献与 `CONFIGURABLE_CIRCUIT.md`。
+- 已读林同学 `CONFIGURABLE_CIRCUIT.md`（同一电路配置用于仿真与测评、六种操作/门限、custom/nominal/shared/per-device 抽样、混合提议等），确认本工作台配置字段与其一致。
+- 上游 `.gitignore` 忽略 `dev/`（临时脚本区），故正式交付物改放顶层 `workbench/fusion/`，不 force-add 被忽略目录。
+- 在 WSL 用 git worktree 另开 `/home/laiqirui/fusion-push`（不改动正在跑仿真的固定副本），基于 `origin/codex/benchmark-oct01`（=312f137）建分支 `fusion-workbench`，提交 `0a07ea5`（137 文件，仅新增 workbench/，不改上游任何文件）。
+- 推送未完成：WSL 到 GitHub 连接时通时断（ls-remote 有时成功有时挂起），且未配置 Git 凭据（credential.helper 为空、无 gh）。多次 push 未能在远端建立分支。已停止重试，避免无效占用。
+- 本地 Windows 工作仓库提交 `a04fa27` 仍为日常开发副本；WSL worktree 提交 `0a07ea5` 为待推送快照。两者内容一致（workbench/fusion 即 Windows fusion 目录内容）。
+- 待用户解决网络/凭据后推送：在 `/home/laiqirui/fusion-push` 执行 `git push -u origin fusion-workbench`；或用户自行在其有凭据的环境推送。推送后可开 PR 到 codex/benchmark-oct01，并用 workbench/fusion/demo_site 开启 GitHub Pages 作只读演示。
+
 ### 仍未闭合（见 ROADMAP）
 
 评分对象与正式题库待老师确认；TabPFN/ GPU 常驻未做；电路功能自动验收未做；组里服务器部署未做；任意新算法代码上传未做。这些是下一阶段增量，不否定本轮已验收能力。
