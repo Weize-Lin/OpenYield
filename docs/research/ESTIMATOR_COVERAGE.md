@@ -12,7 +12,7 @@
 | ACS | 两批生产回归独立核对当批密度、追加失效点及预算。已证实当前和历史代码均未执行聚类。 | 按方向分簇的论文策略是否能改善结果、多个失效区覆盖、当前策略的真实误差。 |
 | HSCS | 生产路径保留聚类、搜索、实际高斯混合与原工艺混合。独立核对密度、正式分母、辅助写和搜索时耗尽预算的处理。 | 多簇情况下的搜索几何、与论文流程的等价性、辅助写对其他读工况的有效性及估计统计性质。 |
 
-ACS 的具体差异包括当前均匀盒子初始化、缺少方向分簇、用累计失效点目标密度作混合分量系数。原作者描述的是超球面预采样、按方向分簇，用各簇局部分布做总体提议并按权重更新。现有混合构造器忽略标签，恢复被注释的调用无法补全流程。本轮保留现有策略。 [OpenYield 使用的 ACS 引文及名称](https://arxiv.org/html/2508.04106v2) · [ACS 作者报告](https://ispd.cc/slides/2019/25_PD_Adaptive.pdf) · [第一作者博士论文第 3 章](https://escholarship.org/content/qt58f61961/qt58f61961_noSplash_5af6b5baafcfcae77097c91fc3fa01ea.pdf)
+ACS 历史路径采用均匀盒初始化，当前不调用方向聚类。分量系数取累计失效点的归一化目标密度。后续核对作者 Algorithm 3 并独立计算发现，在固定候选、相同核参数和对应簇质量的条件下，分簇混合可以化简为当前的扁平混合。因此，未调用聚类本身不能直接认定为数学错误或低估原因。初始化坐标、样本池更新和停止规则仍需逐项核对，见 [ACS 实现核对](ACS_IMPLEMENTATION_AUDIT.md)。 [OpenYield 使用的 ACS 引文及名称](https://arxiv.org/html/2508.04106v2) · [ACS 作者报告](https://ispd.cc/slides/2019/25_PD_Adaptive.pdf) · [第一作者博士论文第 3 章](https://escholarship.org/content/qt58f61961/qt58f61961_noSplash_5af6b5baafcfcae77097c91fc3fa01ea.pdf)
 
 [统计验收](../../yield_estimation/evaluation/ESTIMATION_ACCEPTANCE.md) · [离线选点证据](mnis_selection/README.md) · [自适应路径公开测试](../../tests/test_adaptive_production_contract.py)
 
