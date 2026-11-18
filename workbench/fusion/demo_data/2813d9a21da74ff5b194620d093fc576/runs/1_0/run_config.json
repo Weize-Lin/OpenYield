@@ -1,0 +1,42 @@
+{
+  "case": "sram_6t_3x2_read",
+  "corner": "TT",
+  "vdd": 1,
+  "temperature_c": 27,
+  "relative_std": 0.05,
+  "u0_positive": true,
+  "threshold_ns": 1,
+  "batch_size": 3,
+  "circuit": {
+    "array": [
+      3,
+      2,
+      false
+    ],
+    "corner": "TT",
+    "cell_type": "SRAM_6T_CELL",
+    "cell_6t": null,
+    "operation": "read",
+    "variation_mode": "custom",
+    "real_cell_mode": 0,
+    "w_rc": true,
+    "target": [
+      1,
+      1
+    ],
+    "interconnect_config": null,
+    "vdd": 1,
+    "temperature_c": 27
+  },
+  "seed": 2,
+  "budget": 4,
+  "research": {
+    "budget_unit": "xyce_samples",
+    "max_algorithm_draws": 4,
+    "estimator": {
+      "id": "mc",
+      "algorithm": "mc",
+      "mode": "reference"
+    }
+  }
+}

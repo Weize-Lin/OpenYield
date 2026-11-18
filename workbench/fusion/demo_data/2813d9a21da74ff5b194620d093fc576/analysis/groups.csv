@@ -1,0 +1,3 @@
+group,total_runs,target_anchor,target_same,target_different,target_unknown,source_incomplete,cost_incomplete,plan_mismatch,plan_target_mismatch,run_list_basis,source_revision_check,solver_version_check,solver_sha256_check,budget_protocol_check,draw_cap_check,formal_draw_cap_check,xyce_submitted_check,xyce_returned_check,time_limit_check,reference_status,ranking_eligible
+circuit0-experiment,6,"{""estimator"":""mnis-base"",""seed"":9101}",6,0,0,0,0,0,0,frozen_plan,same,same,same,same,same,unknown,same,same,unknown,available,False
+circuit1-experiment,1,"{""estimator"":""mc"",""seed"":2}",1,0,0,0,0,0,0,frozen_plan,same,same,same,same,same,unknown,same,same,unknown,not_specified,False

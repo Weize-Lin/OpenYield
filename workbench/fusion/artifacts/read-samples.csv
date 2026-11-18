@@ -1,0 +1,5 @@
+sample,batch,xyce_run,read_delay_s,outcome
+1,batch_0000,0,7.131475e-10,pass
+2,batch_0000,1,7.13148e-10,pass
+3,batch_0000,2,7.131447e-10,pass
+4,batch_0003,0,7.131435e-10,pass

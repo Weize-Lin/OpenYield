@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>OpenYield · 科研工作台</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <script src="demo-data.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <aside class="sidebar">
+    <a class="brand" href="#overview" aria-label="OpenYield 实验总览"><span class="brand-mark" aria-hidden="true">OY</span><span>OpenYield<small>科研工作台</small></span></a>
+    <div class="nav-caption">WORKSPACE</div>
+    <nav aria-label="工作台导航">
+      <button type="button" data-view="overview" aria-current="page"><span aria-hidden="true">01</span>实验总览</button>
+      <button type="button" data-view="matrix"><span aria-hidden="true">02</span>对照矩阵</button>
+      <button type="button" data-view="evidence"><span aria-hidden="true">03</span>证据记录</button>
+      <button type="button" data-view="configure"><span aria-hidden="true">04</span>配置实验</button>
+    </nav>
+    <div class="sidebar-foot"><span class="local-dot" aria-hidden="true"></span> 本地研究环境<small>Python 实验核心 · 无自动运行</small></div>
+  </aside>
+  <main id="main" tabindex="-1">
+    <header class="page-header">
+      <div><p class="eyebrow">OPENYIELD / EVALUATION</p><h1 id="page-title">实验总览</h1></div>
+      <div class="header-actions"><a class="download" href="manual.html" target="_blank" rel="noopener">新手手册</a><span id="connection" class="badge">连接中</span><button id="refresh" type="button" class="secondary">刷新历史</button></div>
+    </header>
+    <div id="global-message" class="notice" role="alert" hidden><span id="global-message-text"></span><button id="retry" type="button" class="secondary">重试加载</button><button id="dismiss-message" type="button" class="quiet">关闭提示</button></div>
+    <div id="demo-banner" class="notice" hidden>演示模式：当前展示随仓库分发的真实实验证据包，只读；不能校验新配置或启动仿真。完整模式需连接 OpenYield 与 Xyce 环境。</div>
+    <noscript><p class="notice error">此工作台需要启用 JavaScript。页面不会自动启动仿真。</p></noscript>
+    <div id="data-toolbar" class="filter-bar">
+      <label>实验范围<select id="scope"><option value="all">全部已有分析</option></select></label>
+      <label>记录来源<select id="source-filter"><option value="all">全部来源</option><option value="local">本地实验</option><option value="imported">导入证据（来源待核对）</option><option value="published">公开证据</option></select></label>
+      <label class="search-field">搜索记录<input id="search" type="search" placeholder="方法 / 种子 / 状态" autocomplete="off"></label>
+    </div>
+
+    <section id="view-overview" aria-labelledby="overview-title">
+      <h2 id="overview-title" class="sr-only">实验总览</h2>
+      <div id="overview-stats" class="stat-grid"></div>
+      <section class="card">
+        <div class="section-heading"><div><p class="eyebrow">EXPERIMENTS</p><h2>实验记录</h2></div><button type="button" class="primary" data-view="configure">配置新实验</button></div>
+        <p class="hint">选择实验查看独立参考、对照矩阵及原始证据。历史记录以服务端清单为准。</p>
+        <div id="job-list"><p class="empty">正在读取实验历史…</p></div>
+      </section>
+      <section id="import-panel" class="card">
+        <div class="section-heading"><div><p class="eyebrow">EXISTING EVIDENCE</p><h2>载入已有证据</h2></div><span class="badge accent">只分析，不运行仿真</span></div>
+        <div id="catalog-list"></div>
+        <form id="analyze-form" class="inline-form"><label>结果清单路径<input id="manifest" placeholder="analysis_manifest.json 的完整路径" required></label><button id="analyze" type="submit" class="secondary" disabled>载入证据</button></form>
+        <p class="hint">缺失的文件标记为未产生或未公开，不作为零值处理。</p>
+      </section>
+    </section>
+
+    <section id="view-matrix" hidden aria-labelledby="matrix-title">
+      <div class="section-heading"><div><p class="eyebrow">COMPARISON</p><h2 id="matrix-title">整场实验矩阵</h2></div><button type="button" class="secondary" data-import>载入已有证据</button></div>
+      <p class="hint">行：方法策略版本与预算层级。列：实验 × 工况组。点击单元格查看种子，再打开逐轮证据。</p>
+      <div class="notice subtle">均值直接来自上游方法聚合，不跨实验或参考合并；分母包含缺失轮。未评分显示“—”，不等于零。成本保留逐轮四项原值。</div>
+      <div id="matrix-content"></div>
+    </section>
+
+    <section id="view-evidence" hidden aria-labelledby="evidence-title">
+      <div class="section-heading"><div><p class="eyebrow">EVIDENCE EXPLORER</p><h2 id="evidence-title">逐轮证据记录</h2></div><button type="button" class="secondary" data-import>载入已有证据</button></div>
+      <p class="hint">从任意轮次进入概览、样本、配置、原报告与日志。筛选只影响展示，不改变上游统计口径。</p>
+      <div id="evidence-content"></div>
+    </section>
+
+    <section id="view-configure" hidden aria-labelledby="configure-title">
+      <div class="section-heading"><div><p class="eyebrow">EXPERIMENT BUILDER</p><h2 id="configure-title">配置实验</h2></div><span class="badge">编辑 → 写入 JSON → 校验 → 手动运行</span></div>
+      <section class="card preset-bar"><label>配置预设<select id="preset" disabled></select></label><button id="apply-preset" type="button" class="secondary" disabled>应用所选预设</button><p class="hint">默认采用首个预设（两种 MNIS × 三种子）；切换须手动应用，不触发运行。选择“双电路套件”会填入下方套件输入。</p></section>
+      <section class="card" id="suite-panel">
+        <div class="section-heading"><div><p class="eyebrow">MULTI-CIRCUIT SUITE</p><h3>多电路套件 · 一次提交自动跑多个电路</h3></div><button id="suite-example" type="button" class="secondary">载入双电路示例</button></div>
+        <p class="hint">套件是多个单电路实验配置的数组；每个配置可带自己的 references。提交后按电路顺序执行，矩阵按电路分列。合计仿真上限不超过 400。</p>
+        <label class="sr-only" for="suite-json">套件 JSON（实验配置数组）</label>
+        <textarea id="suite-json" class="code-editor" spellcheck="false" rows="10" placeholder='[{"config": {...}, "references": ["..."]}, ...]'></textarea>
+        <div class="toolbar"><button id="suite-validate" type="button" class="primary" disabled>校验套件</button><button id="suite-run" type="button" class="primary" disabled>运行已校验套件</button></div>
+        <p id="suite-message" class="feedback" role="status" aria-live="polite">尚未校验套件。</p>
+        <div id="suite-plan"></div>
+      </section>
+      <div class="config-grid">
+        <section class="card">
+          <div class="section-heading"><h3>常用参数</h3><span class="badge" id="form-state">尚未加载</span></div>
+          <form id="settings">
+            <fieldset id="settings-fields" disabled>
+              <legend>工况与测量</legend>
+              <div class="fields">
+                <label>单元类型<select id="cell"><option value="6t">6T</option><option value="10t">10T</option></select></label>
+                <label>测量操作<select id="operation"><option value="hold_snm">保持裕量</option><option value="read_snm">读裕量</option><option value="write_snm">写裕量</option><option value="read">读延迟</option><option value="write">写延迟</option><option value="read_write">读写输出周期</option></select></label>
+                <label>工艺角<select id="corner"><option>TT</option><option>FF</option><option>SS</option><option>FS</option><option>SF</option></select></label>
+                <label>电压 / V<input id="vdd" type="number" min="0.01" step="any" required></label>
+                <label>温度 / ℃<input id="temperature" type="number" step="any" required></label>
+                <label>相对标准差<input id="std" type="number" min="0.000001" step="any" required></label>
+                <label>阵列行数<input id="rows" type="number" min="1" step="1" required></label>
+                <label>阵列列数<input id="cols" type="number" min="1" step="1" required></label>
+                <label>目标行 / 从 0 开始<input id="target-row" type="number" min="0" step="1" required></label>
+                <label>目标列 / 从 0 开始<input id="target-col" type="number" min="0" step="1" required></label>
+                <label class="check"><input id="mux" type="checkbox">启用列复用</label><label class="check"><input id="rc" type="checkbox">启用局部 RC</label>
+                <label>工艺抽样<select id="variation"><option value="custom">算法提供样本（custom）</option><option value="nominal">名义点（nominal）</option><option value="per-device">Xyce 逐器件抽样</option><option value="shared">Xyce 共用模型抽样</option></select></label>
+                <label>阵列模型<select id="equivalent"><option value="0">完整阵列 · 0</option><option value="1">等效 · 保留目标行列</option><option value="2">等效 · 保留目标行</option><option value="3">等效 · 保留目标列</option><option value="4">等效 · 保留目标单元</option></select></label>
+                <label><span id="threshold-label">裕量下限 / mV</span><input id="threshold" type="number" min="0.000001" step="any" required></label>
+                <label>直接 MC 每批条数<input id="batch" type="number" min="1" step="1" required></label>
+                <label>每方法每种子预算<input id="budget" type="number" min="1" step="1" required></label>
+                <label>算法抽样上限<input id="draw-cap" type="number" min="1" step="1" required></label>
+                <label class="wide">种子 / 逗号分隔<input id="seeds" required></label>
+              </div>
+              <p class="hint">预算与抽样上限原先相同时，仅修改预算会同步两者；单独设置过的抽样上限不会被覆盖。</p>
+              <h4>启用算法</h4><div id="algorithms" class="algorithms"></div>
+              <p class="hint">同算法可保留多个策略 ID，沿用 JSON 中的顺序。取消算法会在写入时移除该算法的全部策略。</p>
+              <label class="check"><input id="mixed" type="checkbox">启用 HSCS 历史辅助写搜索</label>
+              <p id="mixed-note" class="hint" hidden>仅供读测评。辅助写在末行末列，沿用读门限且占用预算；方法合理性需单独研究。</p>
+              <div id="profile-list" class="profile-list"></div>
+              <button type="submit" class="secondary">将表单写入 JSON</button>
+            </fieldset>
+          </form>
+        </section>
+        <div class="config-right">
+          <section class="card">
+            <h3>完整配置 JSON</h3><p class="hint">保留初始化、提议分布、尺寸、互连及其他高级字段。直接改 JSON 后，请先同步回表单再编辑常用参数。</p>
+            <div class="toolbar"><label class="file-label">导入 JSON<input id="import" type="file" accept=".json,application/json" disabled></label><button id="export" type="button" class="quiet" disabled>导出 JSON</button><button id="fill-form" type="button" class="quiet" disabled>JSON 同步到表单</button></div>
+            <label class="sr-only" for="json">实验完整 JSON</label><textarea id="json" class="code-editor" spellcheck="false" rows="19" disabled></textarea>
+            <button id="validate" type="button" class="primary" disabled>校验当前配置</button>
+            <p id="validation-message" class="feedback" role="status" aria-live="polite">加载配置后可进行校验。</p>
+            <details id="resolved"><summary>规范化配置与实际执行计划</summary><pre id="resolved-json">尚未校验。</pre><div id="plan-table"></div></details>
+          </section>
+          <section class="card" id="execution">
+            <h3>手动启动</h3>
+            <label>实验名称<input id="experiment-name" placeholder="可选，例如 MNIS 策略对照"></label>
+            <label>独立参考目录 / 每行一个，可留空<textarea id="references" rows="2" placeholder="包含 run_summary.json 的目录"></textarea></label>
+            <p class="hint">默认目录仅适用于条件匹配的实验；参考是否有效、独立由最终分析器判断。不可用时误差留空。</p>
+            <label>整场限时 / 秒<input id="time-limit" type="number" min="1" max="3600" step="1" value="600" required></label>
+            <p class="hint">运行将调用原 Python 实验核心与 Xyce。单任务运行，忙时拒绝，不排队。校验成功不表示工况已经实测验证。</p>
+            <button id="run" type="button" class="primary" disabled>运行已校验配置</button><p id="run-state" class="hint" role="status">未启动仿真</p>
+          </section>
+        </div>
+      </div>
+    </section>
+    <footer><span>OpenYield · 描述性比较，不作通用算法排名 · <a href="milestones.md" target="_blank" rel="noopener">开发日志</a></span><span id="revision" class="path"></span></footer>
+  </main>
+
+  <dialog id="detail-dialog" aria-labelledby="detail-title">
+    <header class="dialog-header"><div><p class="eyebrow" id="detail-eyebrow">RUN EVIDENCE</p><h2 id="detail-title">轮次证据</h2><p id="detail-subtitle" class="hint"></p></div><button id="close-detail" type="button" class="secondary" autofocus>关闭</button></header>
+    <div class="dialog-body">
+      <button id="back-method" type="button" class="quiet" hidden>返回该方法种子列表</button>
+      <div id="method-content" hidden></div>
+      <div id="run-detail">
+        <div id="detail-tabs" class="tabs" role="tablist" aria-label="证据类型">
+          <button id="tab-summary" type="button" role="tab" aria-selected="true" aria-controls="detail-panel" data-kind="summary">概览</button>
+          <button id="tab-samples" type="button" role="tab" aria-selected="false" aria-controls="detail-panel" data-kind="samples" tabindex="-1">样本</button>
+          <button id="tab-config" type="button" role="tab" aria-selected="false" aria-controls="detail-panel" data-kind="config" tabindex="-1">配置</button>
+          <button id="tab-report" type="button" role="tab" aria-selected="false" aria-controls="detail-panel" data-kind="report" tabindex="-1">原报告</button>
+          <button id="tab-log" type="button" role="tab" aria-selected="false" aria-controls="detail-panel" data-kind="log" tabindex="-1">日志</button>
+          <button id="tab-circuit" type="button" role="tab" aria-selected="false" aria-controls="detail-panel" data-kind="circuit" tabindex="-1">电路证据</button>
+        </div>
+        <section id="detail-panel" role="tabpanel" aria-labelledby="tab-summary" tabindex="0"><div id="detail-content" aria-live="polite"></div></section>
+      </div>
+    </div>
+  </dialog>
+</body>
+</html>
