@@ -50,3 +50,15 @@ project choices from claims about the paper.
 CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
   python -m unittest discover -s tests -p test_acs_initialization_study.py -v
 ```
+
+The [shared sphere initialization contracts](test_sphere_connection.py) exercise
+18-dimensional physical mapping, the current ACS estimation loop, legacy
+compatibility, and candidate/budget exhaustion with analytic measurements.
+The [execution limit contracts](test_execution_limits.py) use Python fixture
+processes to check task/global deadlines, parent termination, grandchild cleanup,
+and preservation of all planned tasks in offline analysis. Neither calls Xyce.
+
+```bash
+CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PWD/tests:$PWD" \
+  python -m unittest test_sphere_connection test_execution_limits -v
+```

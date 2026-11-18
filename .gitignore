@@ -54,3 +54,6 @@ size_optimization/tongji_results_*.csv
 
 !tests/test_local_web.py
 !tests/test_acs_initialization_study.py
+!tests/test_sphere_connection.py
+
+!tests/test_execution_limits.py

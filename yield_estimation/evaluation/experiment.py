@@ -5,8 +5,10 @@ import csv
 import json
 from pathlib import Path
 import subprocess
+import time
 
-from .analysis_plan import analysis_manifest
+from ._process_limits import forward_termination, run_limited
+from .analysis_plan import analysis_manifest, planned_trials
 from .research_settings import parse_research_context, positive_int, require_keys
 from .run import ROOT, evaluation_circuit_options, normalize_config, source_revision, validate_algorithm_case
 from .run_diagnostics import plan
@@ -21,7 +23,7 @@ def normalize_experiment(config):
     if not isinstance(config, dict):
         config = json.loads(Path(config).read_text(encoding="utf-8"))
     require_keys(config, ("schema_version", "experiment", "budget_unit", "budget_per_algorithm",
-                          "max_algorithm_draws", "estimators", "seeds"), "experiment envelope")
+                          "max_algorithm_draws", "estimators", "seeds", "execution"), "experiment envelope")
     if type(config.get("schema_version")) is not int or config["schema_version"] != 1:
         raise ValueError("Use schema_version 1")
     base = config.get("experiment")
@@ -52,6 +54,15 @@ def normalize_experiment(config):
     result = dict(schema_version=1, experiment=normalized, budget_unit=unit,
                   budget_per_algorithm=budget, max_algorithm_draws=max_draws,
                   seeds=list(seeds), estimators=profiles)
+    if "execution" in config:
+        execution = config["execution"]
+        keys = ("task_timeout_seconds", "experiment_timeout_seconds", "task_kill_grace_seconds", "experiment_kill_grace_seconds", "order")
+        require_keys(execution, keys, "execution")
+        result["execution"] = {key: positive_int(execution.get(key), key) for key in keys if key != "order"}
+        order = execution.get("order", "estimator_major")
+        if order not in ("estimator_major", "seed_major"):
+            raise ValueError("execution.order must be estimator_major or seed_major")
+        result["execution"]["order"] = order
     for _, _, child in child_configs(result):
         child = normalize_config(child)
         profile = child["research"]["estimator"]
@@ -65,22 +76,22 @@ def normalize_experiment(config):
 
 
 def child_configs(config):
-    for profile in config["estimators"]:
-        for seed in config["seeds"]:
-            child = dict(config["experiment"], seed=seed, budget=config["budget_per_algorithm"],
-                         research=dict(budget_unit=config["budget_unit"],
-                                       max_algorithm_draws=config["max_algorithm_draws"], estimator=profile))
-            if profile["algorithm"] != "mc" and profile["mode"] == "variant":
-                # Candidate acquisition has its own radius. This is only the
-                # default bound supplied to constructors with no historical file.
-                if profile["initialization"]["method"] != "legacy":
-                    child["initialization_sigma"] = 3.
-                if profile["algorithm"] == "mnis":
-                    child["mnis_proposal_covariance"] = profile["proposal"]["covariance"]
-                    child["mnis_target_fraction"] = profile["proposal"]["target_fraction"]
-                if profile["algorithm"] == "hscs":
-                    child["hscs_search_origin"] = profile["hscs_search_origin"]
-            yield profile, seed, child
+    for entry, profile in planned_trials(config):
+        seed = entry["seed"]
+        child = dict(config["experiment"], seed=seed, budget=config["budget_per_algorithm"],
+                     research=dict(budget_unit=config["budget_unit"],
+                                   max_algorithm_draws=config["max_algorithm_draws"], estimator=profile))
+        if profile["algorithm"] != "mc" and profile["mode"] == "variant":
+            # Candidate acquisition has its own radius. This is only the
+            # default bound supplied to constructors with no historical file.
+            if profile["initialization"]["method"] != "legacy":
+                child["initialization_sigma"] = 3.
+            if profile["algorithm"] == "mnis":
+                child["mnis_proposal_covariance"] = profile["proposal"]["covariance"]
+                child["mnis_target_fraction"] = profile["proposal"]["target_fraction"]
+            if profile["algorithm"] == "hscs":
+                child["hscs_search_origin"] = profile["hscs_search_origin"]
+        yield profile, seed, child
 
 
 def result_row(profile, seed, folder, algorithm, code, summary):
@@ -112,7 +123,9 @@ def run_experiment(config, output_dir, *, reference_runs=()):
     write_json(experiment_file, config)
     write_json(output / "analysis_manifest.json", analysis_manifest(config, experiment_file, reference_runs))
     revision, dirty = source_revision()
-    trials = []
+    trials, jobs = [], []
+    limits = config.get("execution")
+    # Materialize the full plan before the first child, so interruption loses no tasks.
     for profile, seed, child in child_configs(config):
         relative = Path(profile["id"]) / f"seed_{seed}"
         folder = output / relative
@@ -125,18 +138,67 @@ def run_experiment(config, output_dir, *, reference_runs=()):
                              profile.get("proposal", {}).get("legacy_variance", 1.),
                              profile.get("allow_hscs_mixed_search", False))
         write_json(folder / "command.json", command)
-        with (folder / "process.log").open("wb") as stream:
-            code = subprocess.run(command, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT).returncode
-        summary_file = folder / name / "run_summary.json"
-        summary = json.loads(summary_file.read_text(encoding="utf-8")) if summary_file.exists() else {}
-        row = result_row(profile, seed, relative, name, code, summary)
+        row = result_row(profile, seed, relative, name, None, {"status": "not_started"})
         trials.append(row)
+        audit = dict(schema_version=1, estimator_id=profile["id"], seed=seed, state="not_started",
+                     limits=limits, exit_code=None, wall_seconds=0.)
+        if limits:
+            write_json(folder / "execution.json", audit)
+        jobs.append((profile, seed, folder, relative, name, command, audit))
+
+    def save_trials():
         with (output / "trials.csv").open("w", newline="", encoding="utf-8") as stream:
-            writer = csv.DictWriter(stream, fieldnames=list(row))
+            writer = csv.DictWriter(stream, fieldnames=list(trials[0]))
             writer.writeheader()
             writer.writerows(trials)
-        print(f"{profile['id']} seed={seed} {row['status']} p={row['estimated_pfail']} "
-              f"draws={row['charged_draws']} xyce={row['xyce_submitted']}", flush=True)
+        write_json(output / "experiment_summary.json", dict(git_revision=revision,
+            git_tracked_files_modified=dirty, trials=trials, ranking_eligible=False))
+
+    save_trials()
+    deadline = time.monotonic() + limits["experiment_timeout_seconds"] if limits else None
+    interrupted = False
+    with forward_termination(bool(limits)):
+        for index, (profile, seed, folder, relative, name, command, audit) in enumerate(jobs):
+            state, code = "complete", None
+            started = time.monotonic()
+            if limits and (interrupted or started >= deadline):
+                state = "not_started_after_interrupt" if interrupted else "not_started_after_experiment_timeout"
+                code = 130 if interrupted else 124
+            else:
+                if limits:
+                    audit.update(state="running")
+                    write_json(folder / "execution.json", audit)
+                try:
+                    with (folder / "process.log").open("wb") as stream:
+                        if limits:
+                            code, state = run_limited(command, stream, ROOT, limits, deadline)
+                        else:
+                            code = subprocess.run(command, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT).returncode
+                except KeyboardInterrupt:
+                    if not limits:
+                        raise
+                    code, state, interrupted = 130, "interrupted", True
+                except OSError as error:
+                    code, state = 127, "launch_error"
+                    audit["error"] = str(error)
+            if limits:
+                audit.update(state=state, exit_code=code, wall_seconds=time.monotonic() - started)
+                write_json(folder / "execution.json", audit)
+            summary_file = folder / name / "run_summary.json"
+            try:
+                summary = json.loads(summary_file.read_text(encoding="utf-8")) if summary_file.exists() else {}
+                if not isinstance(summary, dict):
+                    summary = {}
+            except (ValueError, UnicodeError):
+                summary = {}
+            row = result_row(profile, seed, relative, name, code, summary)
+            if limits and state != "complete":
+                if state != "process_failed" or row["status"] in ("complete", "budget_stopped", "stopped", "runner_error"):
+                    row.update(status=state, estimated_pfail=None, log10_pfail=None)
+            trials[index] = row
+            save_trials()
+            print(f"{profile['id']} seed={seed} {row['status']} p={row['estimated_pfail']} "
+                  f"draws={row['charged_draws']} xyce={row['xyce_submitted']}", flush=True)
     result = dict(git_revision=revision, git_tracked_files_modified=dirty, trials=trials,
                   ranking_eligible=False)
     write_json(output / "experiment_summary.json", result)

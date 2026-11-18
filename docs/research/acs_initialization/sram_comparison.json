@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "experiment": {
+    "case": "sram_6t_hold_snm",
+    "corner": "TT",
+    "vdd": 1,
+    "temperature_c": 27,
+    "relative_std": 0.05,
+    "u0_positive": true,
+    "batch_size": 8,
+    "threshold_mv": 327.65,
+    "circuit": {
+      "array": [
+        1,
+        1,
+        false
+      ],
+      "target": [
+        0,
+        0
+      ],
+      "cell_type": "SRAM_6T_CELL",
+      "cell_6t": null,
+      "operation": "hold_snm",
+      "variation_mode": "custom",
+      "real_cell_mode": 0,
+      "w_rc": true,
+      "interconnect_config": null
+    }
+  },
+  "budget_unit": "xyce_samples",
+  "budget_per_algorithm": 132,
+  "max_algorithm_draws": 132,
+  "seeds": [
+    720101,
+    720102,
+    720103,
+    720104,
+    720105,
+    720106,
+    720107,
+    720108
+  ],
+  "estimators": [
+    {
+      "id": "scaled_box",
+      "algorithm": "acs",
+      "mode": "variant",
+      "initialization": {
+        "method": "uniform_box",
+        "max_simulations": 64,
+        "min_failed_candidates": 4,
+        "on_insufficient": "stop",
+        "radius_sigma": 4.0
+      },
+      "initial_batch": 16,
+      "initial_failures": 4,
+      "estimation_batch": 8,
+      "initial_pool": {
+        "count": 4,
+        "rule": "discovery_order"
+      },
+      "proposal": {
+        "covariance": "legacy",
+        "legacy_variance": 1e-05,
+        "std_scale": 1,
+        "target_fraction": 0
+      }
+    },
+    {
+      "id": "sphere_surface",
+      "algorithm": "acs",
+      "mode": "variant",
+      "initialization": {
+        "method": "sphere_surface",
+        "max_simulations": 64,
+        "min_failed_candidates": 4,
+        "on_insufficient": "stop",
+        "radii": [
+          1.0,
+          2.0,
+          3.0,
+          4.0
+        ]
+      },
+      "initial_batch": 16,
+      "initial_failures": 4,
+      "estimation_batch": 8,
+      "initial_pool": {
+        "count": 4,
+        "rule": "discovery_order"
+      },
+      "proposal": {
+        "covariance": "legacy",
+        "legacy_variance": 1e-05,
+        "std_scale": 1,
+        "target_fraction": 0
+      }
+    }
+  ],
+  "execution": {
+    "task_timeout_seconds": 180,
+    "experiment_timeout_seconds": 1800,
+    "task_kill_grace_seconds": 10,
+    "experiment_kill_grace_seconds": 30,
+    "order": "seed_major"
+  }
+}

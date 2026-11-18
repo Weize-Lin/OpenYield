@@ -93,6 +93,9 @@ def normalize_config(config):
     if "research" in config:
         from .research_settings import parse_research_context
         config["research"] = parse_research_context(config["research"], config["budget"])
+        search = config["research"]["estimator"].get("initialization", {})
+        if search.get("method") == "sphere_surface" and max(search["radii"]) * config["relative_std"] >= 1:
+            raise ValueError("sphere_surface affine mapping requires max(radii)*relative_std < 1 for positive u0")
     options = evaluation_circuit_options(config)
     config["corner"] = options["corner"]
     if "circuit" in config or config["case"] != CASE:

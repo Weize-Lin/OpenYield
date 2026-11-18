@@ -17,6 +17,23 @@ class InitializationInsufficient(RuntimeError):
     pass
 
 
+def sphere_surface_samples(target, radius, count, rng):
+    """Research initialization in affine process coordinates; never clip or redraw."""
+    means, sigma = np.asarray(target.means), np.asarray(target.sigma)
+    if (means.ndim != 1 or sigma.shape != means.shape or not np.isfinite(means).all()
+            or not np.isfinite(sigma).all() or (sigma <= 0).any()
+            or (means[1::3] - radius * sigma[1::3] <= 0).any()):
+        raise ValueError("Sphere affine mapping cannot guarantee positive u0")
+    directions = rng.normal(size=(count, means.size))
+    lengths = np.linalg.norm(directions, axis=1, keepdims=True)
+    if not np.isfinite(lengths).all() or (lengths == 0).any():
+        raise ValueError("Invalid sphere direction; no redraw was applied")
+    points = means + sigma * radius * directions / lengths
+    if not target.in_support(points).all():
+        raise ValueError("Sphere mapping left target support; no clipping was applied")
+    return points
+
+
 class ResearchRun:
     def __init__(self, config, output, target, summary, rule):
         context = config["research"]
@@ -97,6 +114,11 @@ class ResearchRun:
         for x, y, failed in zip(samples, values, self.indicator(values).ravel()):
             rows.append(dict(id=f"sample-{len(rows) + 1}", parameters=x.tolist(),
                              measurement=float(y) if np.isfinite(y) else None, failed=bool(failed)))
+            if self.profile.get("initialization", {}).get("method") in ("uniform_box", "sphere_surface"):
+                z = (x - self.target.means) / self.target.sigma
+                radius = float(np.linalg.norm(z))
+                rows[-1].update(standardized_radius=radius,
+                                standardized_direction=(z / radius).tolist() if radius else None)
 
     def acquire(self, algorithm, count, batch, legacy_initializer):
         if self.profile["mode"] == "legacy":
@@ -112,8 +134,15 @@ class ResearchRun:
         selected = []
         scores = []
         status = "insufficient"
+        sphere_layers = []
+        stop_reason = "candidate_cap"
         selection = self.profile.get("center_selection", self.profile.get("initial_pool"))
         try:
+            if method == "sphere_surface":
+                # Validate the entire schedule before any measurements, including
+                # callers that construct ResearchRun without the public validator.
+                if (self.target.means[1::3] - max(settings["radii"]) * self.target.sigma[1::3] <= 0).any():
+                    raise ValueError("Sphere schedule cannot guarantee positive u0")
             if method == "from_file":
                 imported, source = self._import_candidates(settings)
                 cap = min(cap, len(imported))
@@ -131,7 +160,18 @@ class ResearchRun:
                         self.draw_limit - algorithm.submitted_samples)
                 if n <= 0:
                     break
-                if imported is not None:
+                if method == "sphere_surface":
+                    layer = len(sphere_layers)
+                    if layer >= len(settings["radii"]):
+                        stop_reason = "radius_schedule_exhausted"
+                        break
+                    if n != batch:
+                        stop_reason = "whole_sphere_batch_does_not_fit"
+                        break
+                    radius = settings["radii"][layer]
+                    samples = sphere_surface_samples(self.target, radius, n, rng)
+                    sphere_layers.append(dict(radius=radius, generated=n))
+                elif imported is not None:
                     samples = imported[len(rows):len(rows) + n]
                 elif method == "target":
                     samples = self.target.sample(n)
@@ -147,6 +187,8 @@ class ResearchRun:
                     for row, old_id in zip(rows[-n:], source["candidate_ids"][len(rows)-n:len(rows)]):
                         row["source_candidate_id"] = old_id
                 found = [row for row in rows if row["failed"]]
+            if method == "sphere_surface" and len(sphere_layers) == len(settings["radii"]) and len(found) < required:
+                stop_reason = "radius_schedule_exhausted"
             if len(found) < required:
                 raise InitializationInsufficient(f"Verified {len(found)}/{required} required failed candidates")
             indices, scores = select_candidates(found, selection["rule"], self.target)
@@ -162,6 +204,8 @@ class ResearchRun:
             self.initialization = dict(schema_version=1, identity=self.identity, method=method,
                 source=source, status=status, required_failed_candidates=required,
                 found_failed_candidates=len(found), simulated_rows=len(rows), candidates=rows,
+                stop_reason="required_candidates_found" if status == "selected" else stop_reason,
+                sphere_layers=sphere_layers,
                 selection=dict(rule=selection["rule"], scores=dict(zip((row["id"] for row in found), scores)),
                                selected_ids=[row["id"] for row in selected]))
             self._write_initialization()

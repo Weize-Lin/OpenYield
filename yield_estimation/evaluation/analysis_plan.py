@@ -7,11 +7,13 @@ from .outcomes import MeasurementRule
 
 
 def planned_trials(experiment):
-    for profile in experiment['estimators']:
-        for seed in experiment['seeds']:
-            estimator = profile['id']
-            relative = Path(estimator) / f'seed_{seed}' / profile['algorithm']
-            yield dict(estimator=estimator, seed=seed, run=relative.as_posix()), profile
+    pairs = [(profile, seed) for profile in experiment['estimators'] for seed in experiment['seeds']]
+    if experiment.get('execution', {}).get('order') == 'seed_major':
+        pairs = [(profile, seed) for seed in experiment['seeds'] for profile in experiment['estimators']]
+    for profile, seed in pairs:
+        estimator = profile['id']
+        relative = Path(estimator) / f'seed_{seed}' / profile['algorithm']
+        yield dict(estimator=estimator, seed=seed, run=relative.as_posix()), profile
 
 
 def analysis_manifest(experiment, experiment_file, reference_runs):
@@ -70,5 +72,5 @@ def load_planned_trials(manifest, base):
                   threshold_field=rule.threshold_key, threshold=rule.threshold_value)
     return {(entry['estimator'], entry['seed']): dict(profile=profile, target=target, budget=experiment['budget_per_algorithm'],
              budget_protocol=experiment['budget_unit'], xyce_cap=experiment['budget_per_algorithm'],
-             draw_cap=experiment['max_algorithm_draws'], estimation_cap=profile.get('estimation_draws'))
+             draw_cap=experiment['max_algorithm_draws'], estimation_cap=profile.get('estimation_draws'), execution=experiment.get('execution'))
             for entry, profile in planned}

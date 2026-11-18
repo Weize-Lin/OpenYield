@@ -67,6 +67,11 @@ def normalize_estimator(estimator, base_directory, budget):
         raise ValueError("Choose variant explicitly when customizing initialization, selection or proposal")
     if mode == "variant":
         result["initialization"] = normalize_search(result.get("initialization"), base_directory, budget)
+        if result["initialization"]["method"] == "sphere_surface":
+            if name != "acs":
+                raise ValueError("sphere_surface is currently supported only for ACS research variants")
+            if result["initialization"]["max_simulations"] != result["initial_batch"] * len(result["initialization"]["radii"]):
+                raise ValueError("sphere_surface max_simulations must equal initial_batch times the radius count")
         if name == "mnis" and result["initial_failures"] != 1:
             raise ValueError("MNIS uses one selected center; set min_failed_candidates to change the candidate count")
         selection_key = "center_selection" if name == "mnis" else "initial_pool"
@@ -99,11 +104,11 @@ def normalize_estimator(estimator, base_directory, budget):
 
 def normalize_search(search, base_directory, budget):
     require_keys(search, ("method", "radius_sigma", "max_simulations", "min_failed_candidates",
-                          "on_insufficient", "path", "sha256"), "initialization")
+                          "on_insufficient", "path", "sha256", "radii"), "initialization")
     result = dict(search)
     method = result.get("method")
-    if method not in ("legacy", "uniform_box", "target", "from_file"):
-        raise ValueError("initialization.method must be legacy, uniform_box, target or from_file")
+    if method not in ("legacy", "uniform_box", "target", "from_file", "sphere_surface"):
+        raise ValueError("initialization.method must be legacy, uniform_box, target, from_file or sphere_surface")
     cap = positive_int(result.get("max_simulations"), "initialization.max_simulations")
     count = positive_int(result.get("min_failed_candidates"), "initialization.min_failed_candidates")
     if not count <= cap <= budget:
@@ -125,6 +130,16 @@ def normalize_search(search, base_directory, budget):
             raise ValueError("radius_sigma must be positive")
     elif "radius_sigma" in result:
         raise ValueError("radius_sigma requires uniform_box")
+    if method == "sphere_surface":
+        radii = result.get("radii")
+        if not isinstance(radii, list) or not radii:
+            raise ValueError("sphere_surface requires a nonempty radii list")
+        radii = [finite_number(value, "radii") for value in radii]
+        if any(value <= 0 for value in radii) or any(a >= b for a, b in zip(radii, radii[1:])):
+            raise ValueError("radii must be positive and strictly increasing")
+        result["radii"] = radii
+    elif "radii" in result:
+        raise ValueError("radii requires sphere_surface")
     return result
 
 

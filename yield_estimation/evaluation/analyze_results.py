@@ -127,9 +127,30 @@ def analyze_run(entry, base, planned=None):
                if key in planned):
             plan_issues.append('budget_differs_from_plan')
     status = read_issue or summary.get('status', 'missing_status')
+    execution = None
+    if planned and planned.get('execution'):
+        try:
+            execution = json.loads((directory.parent / 'execution.json').read_text())
+            states = {'not_started', 'running', 'complete', 'process_failed', 'task_timeout', 'experiment_timeout',
+                      'not_started_after_experiment_timeout', 'interrupted', 'not_started_after_interrupt', 'launch_error'}
+            if (execution.get('state') not in states or execution.get('schema_version') != 1 or execution.get('estimator_id') != entry['estimator']
+                    or execution.get('seed') != entry['seed'] or execution.get('limits') != planned['execution']):
+                raise ValueError('Execution record differs from frozen plan')
+            if execution.get('state') != 'complete':
+                if execution.get('state') != 'process_failed' or read_issue or status in COMPLETED:
+                    status = execution.get('state') or 'invalid_execution_record'
+            elif execution.get('exit_code') != 0:
+                status = 'invalid_execution_record'
+        except (OSError, ValueError, TypeError, AttributeError):
+            execution = None
+            status = 'missing_or_invalid_execution_record'
+
     integrity = bool(summary) and (entry.get('sha256') is None or entry['sha256'] == digest)
     seed_matches = type(summary.get('seed')) is int and entry['seed'] == summary['seed']
     cost = cost_evidence(summary)
+    if execution and planned and planned.get('execution'):
+        cost['time_limit_s'] = planned['execution']['task_timeout_seconds']
+        cost['wall_seconds'] = execution.get('wall_seconds')
     cost_issues = []
     if not all(integer(cost[key]) for key in ('algorithm_requests', 'xyce_submitted', 'xyce_returned')):
         cost_issues.append('missing_or_invalid_cost_counts')
@@ -150,6 +171,7 @@ def analyze_run(entry, base, planned=None):
     return dict(estimator=entry['estimator'], seed=entry['seed'], observed_seed=summary.get('seed'),
                 case=summary.get('case'), implementation=summary.get('algorithm'), mode=profile.get('mode'),
                 status=status, detail=summary.get('detail', summary.get('error')), numeric_status=numeric,
+                execution=execution, observed_summary_status=summary.get('status'),
                 pfail_estimate=estimate, log10_pfail=log_estimate, warnings=warnings,
                 estimate_available=linear or log_only, linear_usable=linear, source_integrity=integrity,
                 seed_matches=seed_matches, target=target, missing_target_fields=missing,
@@ -238,6 +260,9 @@ def summarize_methods(rows, reference):
         if row['planned'] is not None:
             planned = row['planned']
             budget = {key: planned.get(key) for key in budget_fields}
+            if planned.get('execution'):
+                budget.update(time_limit_s=planned['execution']['task_timeout_seconds'],
+                              execution_limits=planned['execution'])
             strategy = {'estimator_profile': planned['profile']}
             target_group = 'different' if row['target_status'] == 'different' else 'planned_target'
         else:
