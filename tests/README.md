@@ -33,3 +33,9 @@ The [local web contracts](test_local_web.py) exercise HTTP validation and task o
 ```bash
 python -m unittest discover -s tests -p test_local_web.py -v
 ```
+
+The dependency-free browser form regression exercises the production JavaScript handlers and imported strategy IDs.
+
+~~~bash
+node tests/test_local_form.cjs
+~~~

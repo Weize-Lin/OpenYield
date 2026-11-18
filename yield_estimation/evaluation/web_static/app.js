@@ -146,17 +146,25 @@ $("settings").addEventListener("submit", (event) => {
         if (!s.trim()) throw new Error("种子之间请用逗号分隔。");
         return Number(s.trim());
       });
-    config.estimators = names
-      .filter((name) => $(`alg-${name}`).checked)
-      .map((name) => {
-        const profile =
-          config.estimators.find((x) => x.algorithm === name) ||
-          template.estimators.find((x) => x.algorithm === name);
-        const copy = structuredClone(profile);
-        if (name === "mc") copy.mode = e.u0_positive ? "reference" : "legacy";
-        if (name === "hscs") copy.allow_hscs_mixed_search = $("mixed").checked;
-        return copy;
-      });
+    const selected = names.filter((name) => $("alg-" + name).checked);
+    const profiles = config.estimators.filter((profile) =>
+      selected.includes(profile.algorithm),
+    );
+    for (const name of selected) {
+      if (!profiles.some((profile) => profile.algorithm === name)) {
+        profiles.push(template.estimators.find((profile) => profile.algorithm === name));
+      }
+    }
+    config.estimators = profiles.map((profile) => {
+      const copy = structuredClone(profile);
+      if (copy.algorithm === "mc") {
+        copy.mode = e.u0_positive ? "reference" : "legacy";
+      }
+      if (copy.algorithm === "hscs") {
+        copy.allow_hscs_mixed_search = $("mixed").checked;
+      }
+      return copy;
+    });
     $("json").value = JSON.stringify(config, null, 2);
     formDirty = false;
     invalidate();
