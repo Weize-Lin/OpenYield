@@ -23,6 +23,38 @@ def experiment():
 
 
 class ExperimentContract(unittest.TestCase):
+    def test_conflicting_corners_rejected_before_any_runner(self):
+        raw = experiment()
+        raw["experiment"]["circuit"] = {"corner": "FF"}
+        with self.assertRaisesRegex(ValueError, r"corner.*circuit.corner"):
+            normalize_experiment(raw)
+        from yield_estimation.evaluation.run import normalize_config
+        flat = dict(raw["experiment"], seed=0, budget=16)
+        with self.assertRaisesRegex(ValueError, r"corner.*circuit.corner"):
+            normalize_config(flat)
+
+    def test_single_corner_reaches_frozen_target_and_compiler(self):
+        from yield_estimation.evaluation.run import configure_circuit
+        from yield_estimation.evaluation.analysis_plan import analysis_manifest, load_planned_trials
+        for inner_only in (False, True):
+            raw = experiment()
+            raw["experiment"]["corner"] = "FF"
+            if inner_only:
+                del raw["experiment"]["corner"]
+                raw["experiment"]["circuit"] = {"corner": "FF"}
+            resolved = normalize_experiment(raw)
+            self.assertEqual(resolved["experiment"]["corner"], "FF")
+            circuit = resolved["experiment"]["circuit"]
+            self.assertEqual(circuit["corner"], "FF")
+            self.assertEqual(configure_circuit(circuit).global_config.corner, "FF")
+            with TemporaryDirectory() as directory:
+                path = Path(directory) / "experiment.json"
+                path.write_text(json.dumps(resolved))
+                manifest = analysis_manifest(resolved, path, [])
+                targets = load_planned_trials(manifest, path.parent)
+                self.assertTrue(all(item["target"]["resolved_circuit"]["corner"] == "FF"
+                                    for item in targets.values()))
+
     def test_dict_json_roundtrip(self):
         raw = experiment()
         with TemporaryDirectory() as folder:

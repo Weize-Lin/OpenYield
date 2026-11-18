@@ -61,6 +61,9 @@ def normalize_config(config):
     if not isinstance(config, dict):
         raise ValueError("Evaluation configuration must be a JSON object")
     config = dict(config)
+    if "corner" not in config and isinstance(config.get("circuit"), dict):
+        if "corner" in config["circuit"]:
+            config["corner"] = config["circuit"]["corner"]
     case = config.get("case")
     if not isinstance(case, str) or case not in CASE_OPERATIONS:
         raise ValueError(f"Supported cases: {', '.join(CASE_OPERATIONS)}")
@@ -91,6 +94,7 @@ def normalize_config(config):
         from .research_settings import parse_research_context
         config["research"] = parse_research_context(config["research"], config["budget"])
     options = evaluation_circuit_options(config)
+    config["corner"] = options["corner"]
     if "circuit" in config or config["case"] != CASE:
         config["circuit"] = options
     return config
@@ -113,7 +117,7 @@ def evaluation_circuit_options(config):
     if supplied.get("cell_type") is None:
         supplied = {**supplied, "cell_type": cell_type}
     options = normalize_circuit_options(supplied, defaults)
-    for key in ("vdd", "temperature_c"):
+    for key in ("corner", "vdd", "temperature_c"):
         if options[key] is None:
             options[key] = config[key]
         elif options[key] != config[key]:
