@@ -1,0 +1,9 @@
+{
+  "input": "/home/shammy/projects/OpenYield-oct01/outputs/acs_initialization_sram_56320b4/scaled_box/seed_720101/acs/estimation_0000.npz",
+  "scalar_variance_dtype": "torch.float32",
+  "vector_variance_dtype": "torch.float64",
+  "saved_vs_scalar_max_error": 0.0,
+  "saved_vs_independent_math_max_error": 5.5078462679603035e-06,
+  "vector_vs_independent_math_max_error": 2.842170943040401e-14,
+  "statement": "A saved-batch numerical diagnosis; no production change, no samples or solver calls."
+}

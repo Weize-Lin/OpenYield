@@ -144,3 +144,5 @@ CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PW
 [球面接入与离线检查](CONNECTION_REPORT.md) 说明正式入口和超时处理。接入完成不等于已证明球面改善 SRAM，真实实验尚未启动。
 
 [真实对照启动前检查及完整资源范围](LAUNCH_PREFLIGHT.md)。预检不等于已经启动电路。
+
+[唯一一次真实 SRAM 对照结果](SRAM_RESULTS.md)：盒式严重低估，球面 8/8 初始化候选不足；包含全部状态、实际成本和未通过的数值精度检查。

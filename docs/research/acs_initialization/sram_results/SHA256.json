@@ -1,0 +1,18 @@
+{
+  "saved_records.zip": "e04472edefe527f777eb7659314684c10295a5b83719f4a1b5a52ba9a70b3e6f",
+  "density_checks.csv": "afd6865f429e22c803d11bea0c7836fe70eb81e0ae7c2258b4e7bd57d54bbb04",
+  "platform_methods.csv": "3b22f1f044e43c01c707862cc579db9153e73f14dfda41fd02bdb2d59b51bde7",
+  "audit_saved_records.py": "aa4ce14a99ea11fd96b36e7ecbcb51381d349210b56f290ec1453505f6be4b16",
+  "platform_references.csv": "f11c6651a31a8066aa4bc3284d14cc8c0d3e96a6612f962eb4c8855ca207f10c",
+  "platform_analysis.json": "d19fa65d88616024ff8c7b38b4fe26655d76937230bb50b2f730e7ce4789135d",
+  "batch_costs.csv": "df35a3c6fe858029ede67f1387f9cb19cb3637e05dfc8a046ac3f6bda8171261",
+  "package_replay.json": "ab2c4b61e0105affa0ac349c50b82187130744164df3980ff7e2643869c68094",
+  "platform_runs.csv": "48bca84c82c7b8d3a48f2677719da31d997f71eeae449e10be5cd566f0a7fb54",
+  "estimates.png": "64234948c62496ad9caa1ece3e2538f8e8c56c7388a634b35646dbcc080cc716",
+  "tasks.csv": "c62808108584a05aeb72baa445ac8575facc387bbaf9c78a5b7acd8b822dca2f",
+  "density_diagnosis.json": "f99cea0554a8defb9689b6ab0e991c8d279e38a1f5f1a3d97462af14987439e9",
+  "initialization.png": "7d5faf960ab2f7a4de4729cfef30422165616d4688e3fc91fc2a1ac368174437",
+  "audit.json": "0c64dfe6f2f7a7e508c796d8cab6110ba154209b25103f8987107e3861bb59da",
+  "platform_groups.csv": "40d8ee4a3d422695b3b88fd7d527494052f38f82831bb557ed2a06f7747634d7",
+  "launch_receipt.json": "045c8bd368418ff48e28ced2487c905e9ddf05af7637df4d5ee22a28764bf568"
+}

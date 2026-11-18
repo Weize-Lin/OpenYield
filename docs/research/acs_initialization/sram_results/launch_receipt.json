@@ -1,0 +1,30 @@
+{
+  "state": "finished",
+  "execution_revision": "56320b44784c3334af16645a430de1865bb41d9f",
+  "authorized_by_user": true,
+  "authorization": "2112 unique rows, 6336 attempted rows, task 180+10s, experiment 1800+30s; CPU serial; no new reference or reruns",
+  "command": [
+    "/home/shammy/miniconda3/envs/openyield/bin/python",
+    "-m",
+    "yield_estimation.evaluation.experiment",
+    "--config",
+    "/home/shammy/projects/OpenYield-oct01/outputs/acs_sram_preflight_56320b4_final/experiment.json",
+    "--output-dir",
+    "/home/shammy/projects/OpenYield-oct01/outputs/acs_initialization_sram_56320b4",
+    "--reference-run",
+    "/home/shammy/projects/OpenYield-oct01/outputs/acs_sram_preflight_56320b4_final/published_evidence/hold_workflow_bd09101/reference/mc/seed_8311/mc",
+    "--reference-run",
+    "/home/shammy/projects/OpenYield-oct01/outputs/acs_sram_preflight_56320b4_final/published_evidence/hold_workflow_bd09101/reference/mc/seed_8312/mc",
+    "--reference-run",
+    "/home/shammy/projects/OpenYield-oct01/outputs/acs_sram_preflight_56320b4_final/published_evidence/hold_workflow_bd09101/reference/mc/seed_8313/mc",
+    "--reference-run",
+    "/home/shammy/projects/OpenYield-oct01/outputs/acs_sram_preflight_56320b4_final/published_evidence/hold_workflow_bd09101/reference/mc/seed_8314/mc"
+  ],
+  "cwd": "/home/shammy/projects/OpenYield-acs-qualified-56320b4",
+  "start_beijing": "2026-11-18T17:31:15.386723+08:00",
+  "frozen_config_sha256": "10bb1836357ad38a67f7597927833282976f23ad1ed47a25995852e35e3471a3",
+  "pid": 426,
+  "exit_code": 0,
+  "wall_seconds": 200.55854909200002,
+  "finish_beijing": "2026-11-18T17:34:43.922033+08:00"
+}

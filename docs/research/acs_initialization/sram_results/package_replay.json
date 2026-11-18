@@ -1,0 +1,8 @@
+{
+  "package_sha256": "e04472edefe527f777eb7659314684c10295a5b83719f4a1b5a52ba9a70b3e6f",
+  "raw_hashes_verified": 729,
+  "auditor_exit": 2,
+  "table_replay_identical": true,
+  "density_contract_passed": false,
+  "circuit_calls": 0
+}
