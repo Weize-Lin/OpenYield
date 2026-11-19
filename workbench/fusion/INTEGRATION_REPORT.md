@@ -6,7 +6,7 @@
 算法策略、器件模型、原实验配置没有变化；新增的是执行管理、套件复算和公开测试。
 本报告主体记录离线整合阶段：该阶段未从新工作台提交 Xyce 电路仿真。
 后续已在干净源码 `80f3df7` 上完成一次真实闭环验收，结果和范围见
-[真实验收报告](docs/acceptance-80f3df7/README.md)。当前 PR 状态见 [正式审查清单](REVIEW_CHECKLIST.md)。
+[真实验收报告](docs/acceptance-80f3df7/README.md)。当前合并状态见 [交付清单](REVIEW_CHECKLIST.md)。
 
 实际查询远程后，双方提交仍是：
 
@@ -133,4 +133,5 @@ standard-library demo: jobs=1; backend_imported=False
 
 两项都是 0/4 失效，不代表算法精度或高良率；没有独立参考，不评价准确性误差。
 真实异常分支、其他算法和更广工况仍按 [审查清单](REVIEW_CHECKLIST.md) 披露。
-PR #1 转为待正式审查，尚未合并；用户开发分支、同学分支及公开案例标签不直接改动。
+此前 PR #1 完成正式审查收尾时未合并；随后经用户明确授权，以普通 merge 合入 `codex/benchmark-oct01`，合并提交 `2b0c4038e4b98f731a670935a5efe2c43ba09d2b`。
+合并后仅补正文档入口。`main`、同学分支和公开案例标签保持不变，验收范围没有扩大。

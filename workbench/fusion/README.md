@@ -6,17 +6,18 @@ Fusion 把现有 OpenYield 实验和分析入口接成跨电路工作台。算�
 
 ## 研究者应该选择哪个版本
 
-本 PR 合并前，完整工作台入口是 **`Weize-Lin/OpenYield` 的 `codex/integrate-fusion` 分支**。
-PR #1 进入正式审查，尚未合并。`codex/benchmark-oct01` 保留原后端，暂未接入本次工作台。
-新用户可以在新目录取得集成分支，保留现有目录：
+完整工作台入口是 **`Weize-Lin/OpenYield` 的 `codex/benchmark-oct01` 开发分支**。
+PR #1 已以普通 merge 合入，合并提交为 `2b0c4038e4b98f731a670935a5efe2c43ba09d2b`，保留双方历史。
+`codex/integrate-fusion` 与同学的 `fusion-workbench` 分支继续保留；`main` 未改动。
+新用户可以在新目录取得开发分支，保留现有目录：
 
 ```bash
-git clone --branch codex/integrate-fusion https://github.com/Weize-Lin/OpenYield.git OpenYield-fusion
+git clone --branch codex/benchmark-oct01 https://github.com/Weize-Lin/OpenYield.git OpenYield-fusion
 cd OpenYield-fusion
 ```
 
 依赖安装见根目录环境说明及 [首次使用指南](../../docs/research/YIELD_QUICKSTART.md)。
-下面的启动命令只启动页面，不自动提交电路。合并后的分支入口将另行更新文档，本说明不提前假设已经合并。
+下面的启动命令只启动页面，不自动提交电路。这就是合并后的实际入口。旧工作目录有未提交文件时，不需要覆盖、清理或重置它；可以另取新目录。
 
 当前证据分成两个阶段：
 
@@ -26,7 +27,7 @@ cd OpenYield-fusion
 | 后续真实闭环 | 实际源码 `80f3df7`，证据提交 `f159e3e` | 从页面提交一次套件，两个 MC 任务，8 条提交/8 条返回，四表下载和离线复算通过 |
 
 后续真实验收不会改写此前离线阶段的事实。当前本轮收尾只修改文档和 PR 状态，
-没有追加仿真或更改生产代码。完整边界见 [正式审查清单](REVIEW_CHECKLIST.md)。
+没有追加仿真或更改生产代码。完整边界见 [交付清单](REVIEW_CHECKLIST.md)。
 
 ## 在 WSL 启动
 
@@ -40,6 +41,7 @@ bash workbench/fusion/start.sh
 打开 **http://127.0.0.1:8766**。启动页面不会自动仿真；点击运行才提交任务。
 Ctrl+C 停止服务。默认结果在本仓库 `outputs/fusion_workbench/`。
 现有后端本地页面和命令行入口继续保留。
+如果 8766 已被占用，可以用 `bash workbench/fusion/start.sh --port 8770` 并打开 http://127.0.0.1:8770。
 
 `start.sh` 从脚本所在位置定位仓库，不依赖用户名和当前目录。可以显式指定：
 
