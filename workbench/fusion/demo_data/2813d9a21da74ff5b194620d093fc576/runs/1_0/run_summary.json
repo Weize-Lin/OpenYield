@@ -1,0 +1,258 @@
+{
+  "case": "sram_6t_3x2_read",
+  "corner": "TT",
+  "vdd": 1,
+  "temperature_c": 27,
+  "relative_std": 0.05,
+  "u0_positive": true,
+  "threshold_ns": 1,
+  "batch_size": 3,
+  "circuit": {
+    "array": [
+      3,
+      2,
+      false
+    ],
+    "corner": "TT",
+    "cell_type": "SRAM_6T_CELL",
+    "cell_6t": null,
+    "operation": "read",
+    "variation_mode": "custom",
+    "real_cell_mode": 0,
+    "w_rc": true,
+    "target": [
+      1,
+      1
+    ],
+    "interconnect_config": null,
+    "vdd": 1,
+    "temperature_c": 27
+  },
+  "seed": 2,
+  "budget": 4,
+  "research": {
+    "budget_unit": "xyce_samples",
+    "max_algorithm_draws": 4,
+    "estimator": {
+      "id": "mc",
+      "algorithm": "mc",
+      "mode": "reference"
+    }
+  },
+  "algorithm": "repository_MC",
+  "compiler_version": "V2.2.6",
+  "operation": "read",
+  "cell_type": "SRAM_6T_CELL",
+  "measurement": "TREAD_TOTAL",
+  "measurement_column": "read_delay_s",
+  "failure_operator": ">",
+  "threshold_field": "threshold_ns",
+  "outcome_rule_version": "read_outcomes_v1",
+  "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+  "git_tracked_files_modified": false,
+  "rows": 3,
+  "cols": 2,
+  "target": [
+    1,
+    1
+  ],
+  "process_param_format": ".17g",
+  "variation_mode": "custom",
+  "delay_metric": "TREAD_TOTAL",
+  "xyce": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+  "xyce_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+  "xyce_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+  "sampling_source": "numpy_independent_positive_u0",
+  "sample_parameters_saved": true,
+  "approximation": false,
+  "bitcell_table_parameters": 108,
+  "resolved_circuit": {
+    "array": [
+      3,
+      2,
+      false
+    ],
+    "corner": "TT",
+    "cell_type": "SRAM_6T_CELL",
+    "cell_6t": null,
+    "operation": "read",
+    "variation_mode": "custom",
+    "real_cell_mode": 0,
+    "w_rc": true,
+    "target": [
+      1,
+      1
+    ],
+    "interconnect_config": null,
+    "vdd": 1,
+    "temperature_c": 27
+  },
+  "dimensions": 108,
+  "model_path": "/home/laiqirui/openyield-web-312f137/tran_models/models_TT.spice",
+  "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+  "nominal_parameters_per_cell": [
+    0.4106,
+    0.045,
+    -0.13,
+    0.4106,
+    0.045,
+    -0.13,
+    0.4106,
+    0.045,
+    -0.13,
+    -0.3842,
+    0.02,
+    -0.126,
+    0.4106,
+    0.045,
+    -0.13,
+    -0.3842,
+    0.02,
+    -0.126
+  ],
+  "bitcell_parameter_order": [
+    "PGL.vth0",
+    "PGL.u0",
+    "PGL.voff",
+    "PGR.vth0",
+    "PGR.u0",
+    "PGR.voff",
+    "PDL.vth0",
+    "PDL.u0",
+    "PDL.voff",
+    "PUL.vth0",
+    "PUL.u0",
+    "PUL.voff",
+    "PDR.vth0",
+    "PDR.u0",
+    "PDR.voff",
+    "PUR.vth0",
+    "PUR.u0",
+    "PUR.voff"
+  ],
+  "driver_sizes": {
+    "rows": 3,
+    "cols": 2,
+    "cell_type": "SRAM_6T_CELL",
+    "mux": false,
+    "pre": 1.0,
+    "wd_in": 1.0,
+    "wd_out": 2.0,
+    "wl_inv": 1.0,
+    "wl_nand": 1.0,
+    "loads": {
+      "pre_load": 13.25,
+      "wen_load": 22.25,
+      "wl_load": 16.8,
+      "num_sa": 3,
+      "wenb_scale": 1,
+      "sen_load": 20.5,
+      "iso_load": 24.0,
+      "sen_effort": 3.0,
+      "access_load": 3.75
+    },
+    "source": "lookup",
+    "key": "5e694bc4b529b91fb8c59dfefd2e45ecefdb74cb8920ea5f985a12a0c2be0be2",
+    "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+    "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+    "dec_inv": 1.0,
+    "replica_matched": true,
+    "replica_k": 1,
+    "dc_stages": 9,
+    "effort_buffers": true,
+    "canonical_read": true,
+    "replica_precharge_guard": true,
+    "replica_nmos_models": [
+      "NMOS_VTG",
+      "NMOS_VTG"
+    ],
+    "replica_nmos_widths": [
+      2.05e-07,
+      1.35e-07
+    ],
+    "replica_pmos_model": "PMOS_VTG",
+    "replica_pmos_width": 9e-08,
+    "replica_length": 5e-08,
+    "qualified_context_key": "",
+    "area_precharge_width": 2.7e-07,
+    "area_wordline_width": 2.7e-07,
+    "area_senseamp_width": 5.4e-07,
+    "rule_version": "v2.0.5-local-1",
+    "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+    "size_class": "rows<=32/cols<=4",
+    "extrapolated": false,
+    "precharge_guard_stages": 4,
+    "precharge_off_guard": true,
+    "precharge_off_guard_stages": 4,
+    "precharge_off_tau": 1.1365e-13,
+    "control_architecture": "v2.2.0-high-access",
+    "enable_off_tau": 4.2352500000000006e-13,
+    "isolation_tau": 4.2490000000000004e-13
+  },
+  "timing": {
+    "t_period": 9e-09,
+    "low_read": 3.6e-09,
+    "low_write": 3.6e-09,
+    "high": 3.6e-09,
+    "margin": 0.25,
+    "source": "lookup",
+    "driver_key": "5e694bc4b529b91fb8c59dfefd2e45ecefdb74cb8920ea5f985a12a0c2be0be2",
+    "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+    "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+    "table_version": "v2.2.3-timing-1",
+    "size_class": "rows<=32/cols<=4",
+    "extrapolated": false,
+    "qualified": false,
+    "budget": "shared"
+  },
+  "interconnect": {
+    "mode": "distributed",
+    "cell_pin_rc": false,
+    "wl": {
+      "layer": "M2-reference",
+      "pitch_m": 6e-07,
+      "width_m": 1e-07,
+      "sheet_resistance_ohm": 0.16666666666666666,
+      "capacitance_f_per_m": 1.6666666666666666e-10,
+      "sections_per_half_pitch": 1
+    },
+    "bl": {
+      "layer": "M3-reference",
+      "pitch_m": 6e-07,
+      "width_m": 1e-07,
+      "sheet_resistance_ohm": 0.16666666666666666,
+      "capacitance_f_per_m": 1.6666666666666666e-10,
+      "sections_per_half_pitch": 1
+    }
+  },
+  "equivalent": {
+    "mode": 0,
+    "approximate": false
+  },
+  "status": "complete",
+  "error": null,
+  "requested_samples": 4,
+  "returned_rows": 4,
+  "unclassified_samples": 0,
+  "passed_samples": 4,
+  "timing_failures": 0,
+  "failure_count": 0,
+  "pfail_estimate": 0.0,
+  "pfail_interval": [
+    0.0,
+    0.4898908364545972
+  ],
+  "read_functional_failures": 0,
+  "research_cost": {
+    "budget_unit": "xyce_samples",
+    "xyce_cap": 4,
+    "algorithm_draw_cap": 4,
+    "phases": {
+      "estimation": {
+        "algorithm_charged_draws": 4,
+        "xyce_submitted": 4,
+        "xyce_returned": 4
+      }
+    }
+  }
+}

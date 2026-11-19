@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.server.pid
+artifacts/server.stdout.log
+artifacts/server.stderr.log
+artifacts/browser-failure.png
+node_modules/
+.DS_Store

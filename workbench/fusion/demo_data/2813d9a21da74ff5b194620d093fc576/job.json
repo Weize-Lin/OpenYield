@@ -1,0 +1,3005 @@
+{
+  "id": "2813d9a21da74ff5b194620d093fc576",
+  "name": "套件验收 · 保持对照+读取MC",
+  "status": "complete",
+  "source": "local",
+  "created_at": "2026-11-18T11:45:02.454275+00:00",
+  "plan_count": 7,
+  "kind": "suite",
+  "references": [],
+  "time_limit_seconds": 1800,
+  "manifest": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/analysis/analysis_manifest.json",
+  "offline": true,
+  "demo_evidence": {
+    "0/0": "runs/0_0",
+    "0/1": "runs/0_1",
+    "0/2": "runs/0_2",
+    "0/3": "runs/0_3",
+    "0/4": "runs/0_4",
+    "0/5": "runs/0_5",
+    "1/0": "runs/1_0"
+  },
+  "analysis": {
+    "kind": "suite_comparison",
+    "manifest_path": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/analysis/analysis_manifest.json",
+    "ranking_eligible": false,
+    "groups": [
+      {
+        "id": "circuit0-experiment",
+        "checks": {
+          "total_runs": 6,
+          "target_anchor": {
+            "estimator": "mnis-base",
+            "seed": 9101
+          },
+          "target_same": 6,
+          "target_different": 0,
+          "target_unknown": 0,
+          "source_incomplete": 0,
+          "cost_incomplete": 0,
+          "plan_mismatch": 0,
+          "plan_target_mismatch": 0,
+          "run_list_basis": "frozen_plan",
+          "source_revision_check": "same",
+          "solver_version_check": "same",
+          "solver_sha256_check": "same",
+          "budget_protocol_check": "same",
+          "draw_cap_check": "same",
+          "formal_draw_cap_check": "unknown",
+          "xyce_submitted_check": "same",
+          "xyce_returned_check": "same",
+          "time_limit_check": "unknown",
+          "reference_status": "available",
+          "ranking_eligible": false
+        },
+        "runs": [
+          {
+            "estimator": "mnis-base",
+            "seed": 9101,
+            "observed_seed": 9101,
+            "case": "sram_6t_hold_snm",
+            "implementation": "repository_MNIS_configured_proposal",
+            "mode": "variant",
+            "status": "budget_stopped",
+            "detail": "Used 12/12; next estimation batch needs 1",
+            "numeric_status": "representable",
+            "pfail_estimate": 4.598920750139648e-07,
+            "log10_pfail": -6.33734407424279,
+            "warnings": [
+              "low_observed_weight_mass"
+            ],
+            "estimate_available": true,
+            "linear_usable": true,
+            "source_integrity": true,
+            "seed_matches": true,
+            "target": {
+              "resolved_circuit": {
+                "array": [
+                  1,
+                  1,
+                  false
+                ],
+                "corner": "TT",
+                "cell_type": "SRAM_6T_CELL",
+                "cell_6t": null,
+                "operation": "hold_snm",
+                "variation_mode": "custom",
+                "real_cell_mode": 0,
+                "w_rc": true,
+                "target": [
+                  0,
+                  0
+                ],
+                "interconnect_config": null,
+                "vdd": 1,
+                "temperature_c": 27
+              },
+              "operation": "hold_snm",
+              "target": [
+                0,
+                0
+              ],
+              "relative_std": 0.05,
+              "u0_positive": true,
+              "sampling_source": "numpy_independent_positive_u0",
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "nominal_parameters_per_cell": [
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126
+              ],
+              "bitcell_parameter_order": [
+                "PGL.vth0",
+                "PGL.u0",
+                "PGL.voff",
+                "PGR.vth0",
+                "PGR.u0",
+                "PGR.voff",
+                "PDL.vth0",
+                "PDL.u0",
+                "PDL.voff",
+                "PUL.vth0",
+                "PUL.u0",
+                "PUL.voff",
+                "PDR.vth0",
+                "PDR.u0",
+                "PDR.voff",
+                "PUR.vth0",
+                "PUR.u0",
+                "PUR.voff"
+              ],
+              "driver_sizes": {
+                "rows": 1,
+                "cols": 1,
+                "cell_type": "SRAM_6T_CELL",
+                "mux": false,
+                "pre": 1.0,
+                "wd_in": 1.0,
+                "wd_out": 2.0,
+                "wl_inv": 1.0,
+                "wl_nand": 1.0,
+                "loads": {
+                  "pre_load": 9.0,
+                  "wen_load": 16.75,
+                  "wl_load": 8.4,
+                  "num_sa": 2,
+                  "wenb_scale": 1,
+                  "sen_load": 15.75,
+                  "iso_load": 16.0,
+                  "sen_effort": 3.0,
+                  "access_load": 3.75
+                },
+                "source": "lookup",
+                "key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+                "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+                "dec_inv": 1.0,
+                "replica_matched": true,
+                "replica_k": 1,
+                "dc_stages": 9,
+                "effort_buffers": true,
+                "canonical_read": true,
+                "replica_precharge_guard": true,
+                "replica_nmos_models": [
+                  "NMOS_VTG",
+                  "NMOS_VTG"
+                ],
+                "replica_nmos_widths": [
+                  2.05e-07,
+                  1.35e-07
+                ],
+                "replica_pmos_model": "PMOS_VTG",
+                "replica_pmos_width": 9e-08,
+                "replica_length": 5e-08,
+                "qualified_context_key": "",
+                "area_precharge_width": 2.7e-07,
+                "area_wordline_width": 2.7e-07,
+                "area_senseamp_width": 5.4e-07,
+                "rule_version": "v2.0.5-local-1",
+                "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "precharge_guard_stages": 4,
+                "precharge_off_guard": true,
+                "precharge_off_guard_stages": 4,
+                "precharge_off_tau": 1.046e-13,
+                "control_architecture": "v2.2.0-high-access",
+                "enable_off_tau": 4.0891250000000005e-13,
+                "isolation_tau": 4.0835e-13
+              },
+              "timing": {
+                "t_period": 9e-09,
+                "low_read": 3.6e-09,
+                "low_write": 3.6e-09,
+                "high": 3.6e-09,
+                "margin": 0.25,
+                "source": "lookup",
+                "driver_key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+                "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+                "table_version": "v2.2.3-timing-1",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "qualified": false,
+                "budget": "shared"
+              },
+              "interconnect": {
+                "mode": "distributed",
+                "cell_pin_rc": false,
+                "wl": {
+                  "layer": "M2-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                },
+                "bl": {
+                  "layer": "M3-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                }
+              },
+              "equivalent": {
+                "mode": 0,
+                "approximate": false
+              },
+              "measurement": "hold_snm",
+              "failure_operator": "<",
+              "outcome_rule_version": "snm_outcomes_v1",
+              "threshold_field": "threshold_mv",
+              "threshold": 327.65
+            },
+            "missing_target_fields": [],
+            "strategy": {
+              "algorithm": "repository_MNIS_configured_proposal",
+              "settings": {
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "strict_budget": true,
+                "skip_zero_target": true,
+                "legacy_clipping": false
+              },
+              "initialization": {
+                "method": "box_about_nominal",
+                "sigma": 3.0,
+                "lower": [
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449
+                ],
+                "upper": [
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071
+                ]
+              },
+              "initialization_sigma": 3.0,
+              "proposal_covariance": "target_diagonal",
+              "mnis_proposal_covariance": "target_diagonal",
+              "mnis_target_fraction": 0,
+              "batch_size": 4,
+              "estimator_profile": {
+                "id": "mnis-base",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0
+                }
+              }
+            },
+            "cost": {
+              "budget_protocol": "xyce_samples",
+              "budget": 12,
+              "draw_cap": 12,
+              "xyce_cap": 12,
+              "estimation_cap": null,
+              "time_limit_s": null,
+              "wall_seconds": null,
+              "legacy_budget_basis": "algorithm_requests_including_recheck_and_zero_target_draws",
+              "algorithm_requests": 12,
+              "xyce_submitted": 12,
+              "xyce_returned": 12,
+              "formal_draws": 7,
+              "unclassified_samples": 0,
+              "auxiliary_writes": null,
+              "phase_cost": {
+                "initialization": {
+                  "algorithm_charged_draws": 4,
+                  "xyce_submitted": 4,
+                  "xyce_returned": 4
+                },
+                "recheck": {
+                  "algorithm_charged_draws": 1,
+                  "xyce_submitted": 1,
+                  "xyce_returned": 1
+                },
+                "estimation": {
+                  "algorithm_charged_draws": 7,
+                  "xyce_submitted": 7,
+                  "xyce_returned": 7
+                }
+              }
+            },
+            "cost_issues": [],
+            "source": {
+              "summary": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/execution_0/mnis-base/seed_9101/mnis/run_summary.json",
+              "summary_sha256": "d55547b6f9a16a0edd9608dfcd76fa3cae8d7ba5683f969b4e66aa81df906dc5",
+              "expected_summary_sha256": null,
+              "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+              "git_dirty": false,
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "solver": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+              "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+              "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+              "solver_identity_issue": null,
+              "compiler_version": null,
+              "issues": []
+            },
+            "planned": {
+              "profile": {
+                "id": "mnis-base",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0
+                }
+              },
+              "target": {
+                "case": "sram_6t_hold_snm",
+                "resolved_circuit": {
+                  "array": [
+                    1,
+                    1,
+                    false
+                  ],
+                  "corner": "TT",
+                  "cell_type": "SRAM_6T_CELL",
+                  "cell_6t": null,
+                  "operation": "hold_snm",
+                  "variation_mode": "custom",
+                  "real_cell_mode": 0,
+                  "w_rc": true,
+                  "target": [
+                    0,
+                    0
+                  ],
+                  "interconnect_config": null,
+                  "vdd": 1,
+                  "temperature_c": 27
+                },
+                "operation": "hold_snm",
+                "target": [
+                  0,
+                  0
+                ],
+                "relative_std": 0.05,
+                "u0_positive": true,
+                "measurement": "hold_snm",
+                "failure_operator": "<",
+                "outcome_rule_version": "snm_outcomes_v1",
+                "threshold_field": "threshold_mv",
+                "threshold": 327.65
+              },
+              "budget": 12,
+              "budget_protocol": "xyce_samples",
+              "xyce_cap": 12,
+              "draw_cap": 12,
+              "estimation_cap": null
+            },
+            "plan_issues": [],
+            "plan_target_differences": [],
+            "target_differences": [],
+            "target_status": "same",
+            "estimate_status": "linear",
+            "absolute_error": 0.07812454010792498,
+            "reference_source_match": "same"
+          },
+          {
+            "estimator": "mnis-base",
+            "seed": 9102,
+            "observed_seed": 9102,
+            "case": "sram_6t_hold_snm",
+            "implementation": "repository_MNIS_configured_proposal",
+            "mode": "variant",
+            "status": "budget_stopped",
+            "detail": "Used 12/12; next estimation batch needs 1",
+            "numeric_status": "representable",
+            "pfail_estimate": 1.0279840697387285e-18,
+            "log10_pfail": -17.988013615377874,
+            "warnings": [
+              "low_observed_weight_mass"
+            ],
+            "estimate_available": true,
+            "linear_usable": true,
+            "source_integrity": true,
+            "seed_matches": true,
+            "target": {
+              "resolved_circuit": {
+                "array": [
+                  1,
+                  1,
+                  false
+                ],
+                "corner": "TT",
+                "cell_type": "SRAM_6T_CELL",
+                "cell_6t": null,
+                "operation": "hold_snm",
+                "variation_mode": "custom",
+                "real_cell_mode": 0,
+                "w_rc": true,
+                "target": [
+                  0,
+                  0
+                ],
+                "interconnect_config": null,
+                "vdd": 1,
+                "temperature_c": 27
+              },
+              "operation": "hold_snm",
+              "target": [
+                0,
+                0
+              ],
+              "relative_std": 0.05,
+              "u0_positive": true,
+              "sampling_source": "numpy_independent_positive_u0",
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "nominal_parameters_per_cell": [
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126
+              ],
+              "bitcell_parameter_order": [
+                "PGL.vth0",
+                "PGL.u0",
+                "PGL.voff",
+                "PGR.vth0",
+                "PGR.u0",
+                "PGR.voff",
+                "PDL.vth0",
+                "PDL.u0",
+                "PDL.voff",
+                "PUL.vth0",
+                "PUL.u0",
+                "PUL.voff",
+                "PDR.vth0",
+                "PDR.u0",
+                "PDR.voff",
+                "PUR.vth0",
+                "PUR.u0",
+                "PUR.voff"
+              ],
+              "driver_sizes": {
+                "rows": 1,
+                "cols": 1,
+                "cell_type": "SRAM_6T_CELL",
+                "mux": false,
+                "pre": 1.0,
+                "wd_in": 1.0,
+                "wd_out": 2.0,
+                "wl_inv": 1.0,
+                "wl_nand": 1.0,
+                "loads": {
+                  "pre_load": 9.0,
+                  "wen_load": 16.75,
+                  "wl_load": 8.4,
+                  "num_sa": 2,
+                  "wenb_scale": 1,
+                  "sen_load": 15.75,
+                  "iso_load": 16.0,
+                  "sen_effort": 3.0,
+                  "access_load": 3.75
+                },
+                "source": "lookup",
+                "key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+                "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+                "dec_inv": 1.0,
+                "replica_matched": true,
+                "replica_k": 1,
+                "dc_stages": 9,
+                "effort_buffers": true,
+                "canonical_read": true,
+                "replica_precharge_guard": true,
+                "replica_nmos_models": [
+                  "NMOS_VTG",
+                  "NMOS_VTG"
+                ],
+                "replica_nmos_widths": [
+                  2.05e-07,
+                  1.35e-07
+                ],
+                "replica_pmos_model": "PMOS_VTG",
+                "replica_pmos_width": 9e-08,
+                "replica_length": 5e-08,
+                "qualified_context_key": "",
+                "area_precharge_width": 2.7e-07,
+                "area_wordline_width": 2.7e-07,
+                "area_senseamp_width": 5.4e-07,
+                "rule_version": "v2.0.5-local-1",
+                "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "precharge_guard_stages": 4,
+                "precharge_off_guard": true,
+                "precharge_off_guard_stages": 4,
+                "precharge_off_tau": 1.046e-13,
+                "control_architecture": "v2.2.0-high-access",
+                "enable_off_tau": 4.0891250000000005e-13,
+                "isolation_tau": 4.0835e-13
+              },
+              "timing": {
+                "t_period": 9e-09,
+                "low_read": 3.6e-09,
+                "low_write": 3.6e-09,
+                "high": 3.6e-09,
+                "margin": 0.25,
+                "source": "lookup",
+                "driver_key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+                "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+                "table_version": "v2.2.3-timing-1",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "qualified": false,
+                "budget": "shared"
+              },
+              "interconnect": {
+                "mode": "distributed",
+                "cell_pin_rc": false,
+                "wl": {
+                  "layer": "M2-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                },
+                "bl": {
+                  "layer": "M3-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                }
+              },
+              "equivalent": {
+                "mode": 0,
+                "approximate": false
+              },
+              "measurement": "hold_snm",
+              "failure_operator": "<",
+              "outcome_rule_version": "snm_outcomes_v1",
+              "threshold_field": "threshold_mv",
+              "threshold": 327.65
+            },
+            "missing_target_fields": [],
+            "strategy": {
+              "algorithm": "repository_MNIS_configured_proposal",
+              "settings": {
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "strict_budget": true,
+                "skip_zero_target": true,
+                "legacy_clipping": false
+              },
+              "initialization": {
+                "method": "box_about_nominal",
+                "sigma": 3.0,
+                "lower": [
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449
+                ],
+                "upper": [
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071
+                ]
+              },
+              "initialization_sigma": 3.0,
+              "proposal_covariance": "target_diagonal",
+              "mnis_proposal_covariance": "target_diagonal",
+              "mnis_target_fraction": 0,
+              "batch_size": 4,
+              "estimator_profile": {
+                "id": "mnis-base",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0
+                }
+              }
+            },
+            "cost": {
+              "budget_protocol": "xyce_samples",
+              "budget": 12,
+              "draw_cap": 12,
+              "xyce_cap": 12,
+              "estimation_cap": null,
+              "time_limit_s": null,
+              "wall_seconds": null,
+              "legacy_budget_basis": "algorithm_requests_including_recheck_and_zero_target_draws",
+              "algorithm_requests": 12,
+              "xyce_submitted": 12,
+              "xyce_returned": 12,
+              "formal_draws": 7,
+              "unclassified_samples": 0,
+              "auxiliary_writes": null,
+              "phase_cost": {
+                "initialization": {
+                  "algorithm_charged_draws": 4,
+                  "xyce_submitted": 4,
+                  "xyce_returned": 4
+                },
+                "recheck": {
+                  "algorithm_charged_draws": 1,
+                  "xyce_submitted": 1,
+                  "xyce_returned": 1
+                },
+                "estimation": {
+                  "algorithm_charged_draws": 7,
+                  "xyce_submitted": 7,
+                  "xyce_returned": 7
+                }
+              }
+            },
+            "cost_issues": [],
+            "source": {
+              "summary": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/execution_0/mnis-base/seed_9102/mnis/run_summary.json",
+              "summary_sha256": "8444032998cfffdf900464f7014bb81c7cae484c3003e24ba935ccec22ce21fc",
+              "expected_summary_sha256": null,
+              "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+              "git_dirty": false,
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "solver": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+              "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+              "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+              "solver_identity_issue": null,
+              "compiler_version": null,
+              "issues": []
+            },
+            "planned": {
+              "profile": {
+                "id": "mnis-base",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0
+                }
+              },
+              "target": {
+                "case": "sram_6t_hold_snm",
+                "resolved_circuit": {
+                  "array": [
+                    1,
+                    1,
+                    false
+                  ],
+                  "corner": "TT",
+                  "cell_type": "SRAM_6T_CELL",
+                  "cell_6t": null,
+                  "operation": "hold_snm",
+                  "variation_mode": "custom",
+                  "real_cell_mode": 0,
+                  "w_rc": true,
+                  "target": [
+                    0,
+                    0
+                  ],
+                  "interconnect_config": null,
+                  "vdd": 1,
+                  "temperature_c": 27
+                },
+                "operation": "hold_snm",
+                "target": [
+                  0,
+                  0
+                ],
+                "relative_std": 0.05,
+                "u0_positive": true,
+                "measurement": "hold_snm",
+                "failure_operator": "<",
+                "outcome_rule_version": "snm_outcomes_v1",
+                "threshold_field": "threshold_mv",
+                "threshold": 327.65
+              },
+              "budget": 12,
+              "budget_protocol": "xyce_samples",
+              "xyce_cap": 12,
+              "draw_cap": 12,
+              "estimation_cap": null
+            },
+            "plan_issues": [],
+            "plan_target_differences": [],
+            "target_differences": [],
+            "target_status": "same",
+            "estimate_status": "linear",
+            "absolute_error": 0.078125,
+            "reference_source_match": "same"
+          },
+          {
+            "estimator": "mnis-base",
+            "seed": 9103,
+            "observed_seed": 9103,
+            "case": "sram_6t_hold_snm",
+            "implementation": "repository_MNIS_configured_proposal",
+            "mode": "variant",
+            "status": "budget_stopped",
+            "detail": "Used 12/12; next estimation batch needs 1",
+            "numeric_status": "representable",
+            "pfail_estimate": 3.660384937081014e-08,
+            "log10_pfail": -7.436473240490974,
+            "warnings": [
+              "low_observed_weight_mass"
+            ],
+            "estimate_available": true,
+            "linear_usable": true,
+            "source_integrity": true,
+            "seed_matches": true,
+            "target": {
+              "resolved_circuit": {
+                "array": [
+                  1,
+                  1,
+                  false
+                ],
+                "corner": "TT",
+                "cell_type": "SRAM_6T_CELL",
+                "cell_6t": null,
+                "operation": "hold_snm",
+                "variation_mode": "custom",
+                "real_cell_mode": 0,
+                "w_rc": true,
+                "target": [
+                  0,
+                  0
+                ],
+                "interconnect_config": null,
+                "vdd": 1,
+                "temperature_c": 27
+              },
+              "operation": "hold_snm",
+              "target": [
+                0,
+                0
+              ],
+              "relative_std": 0.05,
+              "u0_positive": true,
+              "sampling_source": "numpy_independent_positive_u0",
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "nominal_parameters_per_cell": [
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126
+              ],
+              "bitcell_parameter_order": [
+                "PGL.vth0",
+                "PGL.u0",
+                "PGL.voff",
+                "PGR.vth0",
+                "PGR.u0",
+                "PGR.voff",
+                "PDL.vth0",
+                "PDL.u0",
+                "PDL.voff",
+                "PUL.vth0",
+                "PUL.u0",
+                "PUL.voff",
+                "PDR.vth0",
+                "PDR.u0",
+                "PDR.voff",
+                "PUR.vth0",
+                "PUR.u0",
+                "PUR.voff"
+              ],
+              "driver_sizes": {
+                "rows": 1,
+                "cols": 1,
+                "cell_type": "SRAM_6T_CELL",
+                "mux": false,
+                "pre": 1.0,
+                "wd_in": 1.0,
+                "wd_out": 2.0,
+                "wl_inv": 1.0,
+                "wl_nand": 1.0,
+                "loads": {
+                  "pre_load": 9.0,
+                  "wen_load": 16.75,
+                  "wl_load": 8.4,
+                  "num_sa": 2,
+                  "wenb_scale": 1,
+                  "sen_load": 15.75,
+                  "iso_load": 16.0,
+                  "sen_effort": 3.0,
+                  "access_load": 3.75
+                },
+                "source": "lookup",
+                "key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+                "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+                "dec_inv": 1.0,
+                "replica_matched": true,
+                "replica_k": 1,
+                "dc_stages": 9,
+                "effort_buffers": true,
+                "canonical_read": true,
+                "replica_precharge_guard": true,
+                "replica_nmos_models": [
+                  "NMOS_VTG",
+                  "NMOS_VTG"
+                ],
+                "replica_nmos_widths": [
+                  2.05e-07,
+                  1.35e-07
+                ],
+                "replica_pmos_model": "PMOS_VTG",
+                "replica_pmos_width": 9e-08,
+                "replica_length": 5e-08,
+                "qualified_context_key": "",
+                "area_precharge_width": 2.7e-07,
+                "area_wordline_width": 2.7e-07,
+                "area_senseamp_width": 5.4e-07,
+                "rule_version": "v2.0.5-local-1",
+                "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "precharge_guard_stages": 4,
+                "precharge_off_guard": true,
+                "precharge_off_guard_stages": 4,
+                "precharge_off_tau": 1.046e-13,
+                "control_architecture": "v2.2.0-high-access",
+                "enable_off_tau": 4.0891250000000005e-13,
+                "isolation_tau": 4.0835e-13
+              },
+              "timing": {
+                "t_period": 9e-09,
+                "low_read": 3.6e-09,
+                "low_write": 3.6e-09,
+                "high": 3.6e-09,
+                "margin": 0.25,
+                "source": "lookup",
+                "driver_key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+                "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+                "table_version": "v2.2.3-timing-1",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "qualified": false,
+                "budget": "shared"
+              },
+              "interconnect": {
+                "mode": "distributed",
+                "cell_pin_rc": false,
+                "wl": {
+                  "layer": "M2-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                },
+                "bl": {
+                  "layer": "M3-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                }
+              },
+              "equivalent": {
+                "mode": 0,
+                "approximate": false
+              },
+              "measurement": "hold_snm",
+              "failure_operator": "<",
+              "outcome_rule_version": "snm_outcomes_v1",
+              "threshold_field": "threshold_mv",
+              "threshold": 327.65
+            },
+            "missing_target_fields": [],
+            "strategy": {
+              "algorithm": "repository_MNIS_configured_proposal",
+              "settings": {
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "strict_budget": true,
+                "skip_zero_target": true,
+                "legacy_clipping": false
+              },
+              "initialization": {
+                "method": "box_about_nominal",
+                "sigma": 3.0,
+                "lower": [
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449
+                ],
+                "upper": [
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071
+                ]
+              },
+              "initialization_sigma": 3.0,
+              "proposal_covariance": "target_diagonal",
+              "mnis_proposal_covariance": "target_diagonal",
+              "mnis_target_fraction": 0,
+              "batch_size": 4,
+              "estimator_profile": {
+                "id": "mnis-base",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0
+                }
+              }
+            },
+            "cost": {
+              "budget_protocol": "xyce_samples",
+              "budget": 12,
+              "draw_cap": 12,
+              "xyce_cap": 12,
+              "estimation_cap": null,
+              "time_limit_s": null,
+              "wall_seconds": null,
+              "legacy_budget_basis": "algorithm_requests_including_recheck_and_zero_target_draws",
+              "algorithm_requests": 12,
+              "xyce_submitted": 12,
+              "xyce_returned": 12,
+              "formal_draws": 7,
+              "unclassified_samples": 0,
+              "auxiliary_writes": null,
+              "phase_cost": {
+                "initialization": {
+                  "algorithm_charged_draws": 4,
+                  "xyce_submitted": 4,
+                  "xyce_returned": 4
+                },
+                "recheck": {
+                  "algorithm_charged_draws": 1,
+                  "xyce_submitted": 1,
+                  "xyce_returned": 1
+                },
+                "estimation": {
+                  "algorithm_charged_draws": 7,
+                  "xyce_submitted": 7,
+                  "xyce_returned": 7
+                }
+              }
+            },
+            "cost_issues": [],
+            "source": {
+              "summary": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/execution_0/mnis-base/seed_9103/mnis/run_summary.json",
+              "summary_sha256": "f562284e8d090b9f0a3b68e2818f8f6a80849b91137016526627d575555a63af",
+              "expected_summary_sha256": null,
+              "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+              "git_dirty": false,
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "solver": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+              "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+              "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+              "solver_identity_issue": null,
+              "compiler_version": null,
+              "issues": []
+            },
+            "planned": {
+              "profile": {
+                "id": "mnis-base",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0
+                }
+              },
+              "target": {
+                "case": "sram_6t_hold_snm",
+                "resolved_circuit": {
+                  "array": [
+                    1,
+                    1,
+                    false
+                  ],
+                  "corner": "TT",
+                  "cell_type": "SRAM_6T_CELL",
+                  "cell_6t": null,
+                  "operation": "hold_snm",
+                  "variation_mode": "custom",
+                  "real_cell_mode": 0,
+                  "w_rc": true,
+                  "target": [
+                    0,
+                    0
+                  ],
+                  "interconnect_config": null,
+                  "vdd": 1,
+                  "temperature_c": 27
+                },
+                "operation": "hold_snm",
+                "target": [
+                  0,
+                  0
+                ],
+                "relative_std": 0.05,
+                "u0_positive": true,
+                "measurement": "hold_snm",
+                "failure_operator": "<",
+                "outcome_rule_version": "snm_outcomes_v1",
+                "threshold_field": "threshold_mv",
+                "threshold": 327.65
+              },
+              "budget": 12,
+              "budget_protocol": "xyce_samples",
+              "xyce_cap": 12,
+              "draw_cap": 12,
+              "estimation_cap": null
+            },
+            "plan_issues": [],
+            "plan_target_differences": [],
+            "target_differences": [],
+            "target_status": "same",
+            "estimate_status": "linear",
+            "absolute_error": 0.07812496339615063,
+            "reference_source_match": "same"
+          },
+          {
+            "estimator": "mnis-mixed-50",
+            "seed": 9101,
+            "observed_seed": 9101,
+            "case": "sram_6t_hold_snm",
+            "implementation": "repository_MNIS_defensive_mixture",
+            "mode": "variant",
+            "status": "budget_stopped",
+            "detail": "Used 12/12; next estimation batch needs 1",
+            "numeric_status": "representable",
+            "pfail_estimate": 0.2850758881810977,
+            "log10_pfail": -0.5450395139172411,
+            "warnings": [],
+            "estimate_available": true,
+            "linear_usable": true,
+            "source_integrity": true,
+            "seed_matches": true,
+            "target": {
+              "resolved_circuit": {
+                "array": [
+                  1,
+                  1,
+                  false
+                ],
+                "corner": "TT",
+                "cell_type": "SRAM_6T_CELL",
+                "cell_6t": null,
+                "operation": "hold_snm",
+                "variation_mode": "custom",
+                "real_cell_mode": 0,
+                "w_rc": true,
+                "target": [
+                  0,
+                  0
+                ],
+                "interconnect_config": null,
+                "vdd": 1,
+                "temperature_c": 27
+              },
+              "operation": "hold_snm",
+              "target": [
+                0,
+                0
+              ],
+              "relative_std": 0.05,
+              "u0_positive": true,
+              "sampling_source": "numpy_independent_positive_u0",
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "nominal_parameters_per_cell": [
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126
+              ],
+              "bitcell_parameter_order": [
+                "PGL.vth0",
+                "PGL.u0",
+                "PGL.voff",
+                "PGR.vth0",
+                "PGR.u0",
+                "PGR.voff",
+                "PDL.vth0",
+                "PDL.u0",
+                "PDL.voff",
+                "PUL.vth0",
+                "PUL.u0",
+                "PUL.voff",
+                "PDR.vth0",
+                "PDR.u0",
+                "PDR.voff",
+                "PUR.vth0",
+                "PUR.u0",
+                "PUR.voff"
+              ],
+              "driver_sizes": {
+                "rows": 1,
+                "cols": 1,
+                "cell_type": "SRAM_6T_CELL",
+                "mux": false,
+                "pre": 1.0,
+                "wd_in": 1.0,
+                "wd_out": 2.0,
+                "wl_inv": 1.0,
+                "wl_nand": 1.0,
+                "loads": {
+                  "pre_load": 9.0,
+                  "wen_load": 16.75,
+                  "wl_load": 8.4,
+                  "num_sa": 2,
+                  "wenb_scale": 1,
+                  "sen_load": 15.75,
+                  "iso_load": 16.0,
+                  "sen_effort": 3.0,
+                  "access_load": 3.75
+                },
+                "source": "lookup",
+                "key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+                "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+                "dec_inv": 1.0,
+                "replica_matched": true,
+                "replica_k": 1,
+                "dc_stages": 9,
+                "effort_buffers": true,
+                "canonical_read": true,
+                "replica_precharge_guard": true,
+                "replica_nmos_models": [
+                  "NMOS_VTG",
+                  "NMOS_VTG"
+                ],
+                "replica_nmos_widths": [
+                  2.05e-07,
+                  1.35e-07
+                ],
+                "replica_pmos_model": "PMOS_VTG",
+                "replica_pmos_width": 9e-08,
+                "replica_length": 5e-08,
+                "qualified_context_key": "",
+                "area_precharge_width": 2.7e-07,
+                "area_wordline_width": 2.7e-07,
+                "area_senseamp_width": 5.4e-07,
+                "rule_version": "v2.0.5-local-1",
+                "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "precharge_guard_stages": 4,
+                "precharge_off_guard": true,
+                "precharge_off_guard_stages": 4,
+                "precharge_off_tau": 1.046e-13,
+                "control_architecture": "v2.2.0-high-access",
+                "enable_off_tau": 4.0891250000000005e-13,
+                "isolation_tau": 4.0835e-13
+              },
+              "timing": {
+                "t_period": 9e-09,
+                "low_read": 3.6e-09,
+                "low_write": 3.6e-09,
+                "high": 3.6e-09,
+                "margin": 0.25,
+                "source": "lookup",
+                "driver_key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+                "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+                "table_version": "v2.2.3-timing-1",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "qualified": false,
+                "budget": "shared"
+              },
+              "interconnect": {
+                "mode": "distributed",
+                "cell_pin_rc": false,
+                "wl": {
+                  "layer": "M2-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                },
+                "bl": {
+                  "layer": "M3-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                }
+              },
+              "equivalent": {
+                "mode": 0,
+                "approximate": false
+              },
+              "measurement": "hold_snm",
+              "failure_operator": "<",
+              "outcome_rule_version": "snm_outcomes_v1",
+              "threshold_field": "threshold_mv",
+              "threshold": 327.65
+            },
+            "missing_target_fields": [],
+            "strategy": {
+              "algorithm": "repository_MNIS_defensive_mixture",
+              "settings": {
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "strict_budget": true,
+                "skip_zero_target": true,
+                "legacy_clipping": false
+              },
+              "initialization": {
+                "method": "box_about_nominal",
+                "sigma": 3.0,
+                "lower": [
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449
+                ],
+                "upper": [
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071
+                ]
+              },
+              "initialization_sigma": 3.0,
+              "proposal_covariance": "target_diagonal",
+              "mnis_proposal_covariance": "target_diagonal",
+              "mnis_target_fraction": 0.5,
+              "batch_size": 4,
+              "estimator_profile": {
+                "id": "mnis-mixed-50",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0.5
+                }
+              }
+            },
+            "cost": {
+              "budget_protocol": "xyce_samples",
+              "budget": 12,
+              "draw_cap": 12,
+              "xyce_cap": 12,
+              "estimation_cap": null,
+              "time_limit_s": null,
+              "wall_seconds": null,
+              "legacy_budget_basis": "algorithm_requests_including_recheck_and_zero_target_draws",
+              "algorithm_requests": 12,
+              "xyce_submitted": 12,
+              "xyce_returned": 12,
+              "formal_draws": 7,
+              "unclassified_samples": 0,
+              "auxiliary_writes": null,
+              "phase_cost": {
+                "initialization": {
+                  "algorithm_charged_draws": 4,
+                  "xyce_submitted": 4,
+                  "xyce_returned": 4
+                },
+                "recheck": {
+                  "algorithm_charged_draws": 1,
+                  "xyce_submitted": 1,
+                  "xyce_returned": 1
+                },
+                "estimation": {
+                  "algorithm_charged_draws": 7,
+                  "xyce_submitted": 7,
+                  "xyce_returned": 7
+                }
+              }
+            },
+            "cost_issues": [],
+            "source": {
+              "summary": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/execution_0/mnis-mixed-50/seed_9101/mnis/run_summary.json",
+              "summary_sha256": "2a6787c399fa036e48c084a52c0c6affae4a0ec8c36ca854690d0db0688b731f",
+              "expected_summary_sha256": null,
+              "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+              "git_dirty": false,
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "solver": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+              "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+              "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+              "solver_identity_issue": null,
+              "compiler_version": null,
+              "issues": []
+            },
+            "planned": {
+              "profile": {
+                "id": "mnis-mixed-50",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0.5
+                }
+              },
+              "target": {
+                "case": "sram_6t_hold_snm",
+                "resolved_circuit": {
+                  "array": [
+                    1,
+                    1,
+                    false
+                  ],
+                  "corner": "TT",
+                  "cell_type": "SRAM_6T_CELL",
+                  "cell_6t": null,
+                  "operation": "hold_snm",
+                  "variation_mode": "custom",
+                  "real_cell_mode": 0,
+                  "w_rc": true,
+                  "target": [
+                    0,
+                    0
+                  ],
+                  "interconnect_config": null,
+                  "vdd": 1,
+                  "temperature_c": 27
+                },
+                "operation": "hold_snm",
+                "target": [
+                  0,
+                  0
+                ],
+                "relative_std": 0.05,
+                "u0_positive": true,
+                "measurement": "hold_snm",
+                "failure_operator": "<",
+                "outcome_rule_version": "snm_outcomes_v1",
+                "threshold_field": "threshold_mv",
+                "threshold": 327.65
+              },
+              "budget": 12,
+              "budget_protocol": "xyce_samples",
+              "xyce_cap": 12,
+              "draw_cap": 12,
+              "estimation_cap": null
+            },
+            "plan_issues": [],
+            "plan_target_differences": [],
+            "target_differences": [],
+            "target_status": "same",
+            "estimate_status": "linear",
+            "absolute_error": 0.2069508881810977,
+            "reference_source_match": "same"
+          },
+          {
+            "estimator": "mnis-mixed-50",
+            "seed": 9102,
+            "observed_seed": 9102,
+            "case": "sram_6t_hold_snm",
+            "implementation": "repository_MNIS_defensive_mixture",
+            "mode": "variant",
+            "status": "budget_stopped",
+            "detail": "Used 12/12; next estimation batch needs 1",
+            "numeric_status": "representable",
+            "pfail_estimate": 3.1811619489407947e-15,
+            "log10_pfail": -14.49741422094576,
+            "warnings": [],
+            "estimate_available": true,
+            "linear_usable": true,
+            "source_integrity": true,
+            "seed_matches": true,
+            "target": {
+              "resolved_circuit": {
+                "array": [
+                  1,
+                  1,
+                  false
+                ],
+                "corner": "TT",
+                "cell_type": "SRAM_6T_CELL",
+                "cell_6t": null,
+                "operation": "hold_snm",
+                "variation_mode": "custom",
+                "real_cell_mode": 0,
+                "w_rc": true,
+                "target": [
+                  0,
+                  0
+                ],
+                "interconnect_config": null,
+                "vdd": 1,
+                "temperature_c": 27
+              },
+              "operation": "hold_snm",
+              "target": [
+                0,
+                0
+              ],
+              "relative_std": 0.05,
+              "u0_positive": true,
+              "sampling_source": "numpy_independent_positive_u0",
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "nominal_parameters_per_cell": [
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126
+              ],
+              "bitcell_parameter_order": [
+                "PGL.vth0",
+                "PGL.u0",
+                "PGL.voff",
+                "PGR.vth0",
+                "PGR.u0",
+                "PGR.voff",
+                "PDL.vth0",
+                "PDL.u0",
+                "PDL.voff",
+                "PUL.vth0",
+                "PUL.u0",
+                "PUL.voff",
+                "PDR.vth0",
+                "PDR.u0",
+                "PDR.voff",
+                "PUR.vth0",
+                "PUR.u0",
+                "PUR.voff"
+              ],
+              "driver_sizes": {
+                "rows": 1,
+                "cols": 1,
+                "cell_type": "SRAM_6T_CELL",
+                "mux": false,
+                "pre": 1.0,
+                "wd_in": 1.0,
+                "wd_out": 2.0,
+                "wl_inv": 1.0,
+                "wl_nand": 1.0,
+                "loads": {
+                  "pre_load": 9.0,
+                  "wen_load": 16.75,
+                  "wl_load": 8.4,
+                  "num_sa": 2,
+                  "wenb_scale": 1,
+                  "sen_load": 15.75,
+                  "iso_load": 16.0,
+                  "sen_effort": 3.0,
+                  "access_load": 3.75
+                },
+                "source": "lookup",
+                "key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+                "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+                "dec_inv": 1.0,
+                "replica_matched": true,
+                "replica_k": 1,
+                "dc_stages": 9,
+                "effort_buffers": true,
+                "canonical_read": true,
+                "replica_precharge_guard": true,
+                "replica_nmos_models": [
+                  "NMOS_VTG",
+                  "NMOS_VTG"
+                ],
+                "replica_nmos_widths": [
+                  2.05e-07,
+                  1.35e-07
+                ],
+                "replica_pmos_model": "PMOS_VTG",
+                "replica_pmos_width": 9e-08,
+                "replica_length": 5e-08,
+                "qualified_context_key": "",
+                "area_precharge_width": 2.7e-07,
+                "area_wordline_width": 2.7e-07,
+                "area_senseamp_width": 5.4e-07,
+                "rule_version": "v2.0.5-local-1",
+                "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "precharge_guard_stages": 4,
+                "precharge_off_guard": true,
+                "precharge_off_guard_stages": 4,
+                "precharge_off_tau": 1.046e-13,
+                "control_architecture": "v2.2.0-high-access",
+                "enable_off_tau": 4.0891250000000005e-13,
+                "isolation_tau": 4.0835e-13
+              },
+              "timing": {
+                "t_period": 9e-09,
+                "low_read": 3.6e-09,
+                "low_write": 3.6e-09,
+                "high": 3.6e-09,
+                "margin": 0.25,
+                "source": "lookup",
+                "driver_key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+                "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+                "table_version": "v2.2.3-timing-1",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "qualified": false,
+                "budget": "shared"
+              },
+              "interconnect": {
+                "mode": "distributed",
+                "cell_pin_rc": false,
+                "wl": {
+                  "layer": "M2-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                },
+                "bl": {
+                  "layer": "M3-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                }
+              },
+              "equivalent": {
+                "mode": 0,
+                "approximate": false
+              },
+              "measurement": "hold_snm",
+              "failure_operator": "<",
+              "outcome_rule_version": "snm_outcomes_v1",
+              "threshold_field": "threshold_mv",
+              "threshold": 327.65
+            },
+            "missing_target_fields": [],
+            "strategy": {
+              "algorithm": "repository_MNIS_defensive_mixture",
+              "settings": {
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "strict_budget": true,
+                "skip_zero_target": true,
+                "legacy_clipping": false
+              },
+              "initialization": {
+                "method": "box_about_nominal",
+                "sigma": 3.0,
+                "lower": [
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449
+                ],
+                "upper": [
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071
+                ]
+              },
+              "initialization_sigma": 3.0,
+              "proposal_covariance": "target_diagonal",
+              "mnis_proposal_covariance": "target_diagonal",
+              "mnis_target_fraction": 0.5,
+              "batch_size": 4,
+              "estimator_profile": {
+                "id": "mnis-mixed-50",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0.5
+                }
+              }
+            },
+            "cost": {
+              "budget_protocol": "xyce_samples",
+              "budget": 12,
+              "draw_cap": 12,
+              "xyce_cap": 12,
+              "estimation_cap": null,
+              "time_limit_s": null,
+              "wall_seconds": null,
+              "legacy_budget_basis": "algorithm_requests_including_recheck_and_zero_target_draws",
+              "algorithm_requests": 12,
+              "xyce_submitted": 12,
+              "xyce_returned": 12,
+              "formal_draws": 7,
+              "unclassified_samples": 0,
+              "auxiliary_writes": null,
+              "phase_cost": {
+                "initialization": {
+                  "algorithm_charged_draws": 4,
+                  "xyce_submitted": 4,
+                  "xyce_returned": 4
+                },
+                "recheck": {
+                  "algorithm_charged_draws": 1,
+                  "xyce_submitted": 1,
+                  "xyce_returned": 1
+                },
+                "estimation": {
+                  "algorithm_charged_draws": 7,
+                  "xyce_submitted": 7,
+                  "xyce_returned": 7
+                }
+              }
+            },
+            "cost_issues": [],
+            "source": {
+              "summary": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/execution_0/mnis-mixed-50/seed_9102/mnis/run_summary.json",
+              "summary_sha256": "775627b1518e0ebbaa898b07323c63bc3ec6a3ea51a2e301fc429bac61e7d489",
+              "expected_summary_sha256": null,
+              "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+              "git_dirty": false,
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "solver": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+              "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+              "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+              "solver_identity_issue": null,
+              "compiler_version": null,
+              "issues": []
+            },
+            "planned": {
+              "profile": {
+                "id": "mnis-mixed-50",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0.5
+                }
+              },
+              "target": {
+                "case": "sram_6t_hold_snm",
+                "resolved_circuit": {
+                  "array": [
+                    1,
+                    1,
+                    false
+                  ],
+                  "corner": "TT",
+                  "cell_type": "SRAM_6T_CELL",
+                  "cell_6t": null,
+                  "operation": "hold_snm",
+                  "variation_mode": "custom",
+                  "real_cell_mode": 0,
+                  "w_rc": true,
+                  "target": [
+                    0,
+                    0
+                  ],
+                  "interconnect_config": null,
+                  "vdd": 1,
+                  "temperature_c": 27
+                },
+                "operation": "hold_snm",
+                "target": [
+                  0,
+                  0
+                ],
+                "relative_std": 0.05,
+                "u0_positive": true,
+                "measurement": "hold_snm",
+                "failure_operator": "<",
+                "outcome_rule_version": "snm_outcomes_v1",
+                "threshold_field": "threshold_mv",
+                "threshold": 327.65
+              },
+              "budget": 12,
+              "budget_protocol": "xyce_samples",
+              "xyce_cap": 12,
+              "draw_cap": 12,
+              "estimation_cap": null
+            },
+            "plan_issues": [],
+            "plan_target_differences": [],
+            "target_differences": [],
+            "target_status": "same",
+            "estimate_status": "linear",
+            "absolute_error": 0.07812499999999682,
+            "reference_source_match": "same"
+          },
+          {
+            "estimator": "mnis-mixed-50",
+            "seed": 9103,
+            "observed_seed": 9103,
+            "case": "sram_6t_hold_snm",
+            "implementation": "repository_MNIS_defensive_mixture",
+            "mode": "variant",
+            "status": "budget_stopped",
+            "detail": "Used 12/12; next estimation batch needs 1",
+            "numeric_status": "representable",
+            "pfail_estimate": 0.8571428147850993,
+            "log10_pfail": -0.06694681109231092,
+            "warnings": [],
+            "estimate_available": true,
+            "linear_usable": true,
+            "source_integrity": true,
+            "seed_matches": true,
+            "target": {
+              "resolved_circuit": {
+                "array": [
+                  1,
+                  1,
+                  false
+                ],
+                "corner": "TT",
+                "cell_type": "SRAM_6T_CELL",
+                "cell_6t": null,
+                "operation": "hold_snm",
+                "variation_mode": "custom",
+                "real_cell_mode": 0,
+                "w_rc": true,
+                "target": [
+                  0,
+                  0
+                ],
+                "interconnect_config": null,
+                "vdd": 1,
+                "temperature_c": 27
+              },
+              "operation": "hold_snm",
+              "target": [
+                0,
+                0
+              ],
+              "relative_std": 0.05,
+              "u0_positive": true,
+              "sampling_source": "numpy_independent_positive_u0",
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "nominal_parameters_per_cell": [
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126
+              ],
+              "bitcell_parameter_order": [
+                "PGL.vth0",
+                "PGL.u0",
+                "PGL.voff",
+                "PGR.vth0",
+                "PGR.u0",
+                "PGR.voff",
+                "PDL.vth0",
+                "PDL.u0",
+                "PDL.voff",
+                "PUL.vth0",
+                "PUL.u0",
+                "PUL.voff",
+                "PDR.vth0",
+                "PDR.u0",
+                "PDR.voff",
+                "PUR.vth0",
+                "PUR.u0",
+                "PUR.voff"
+              ],
+              "driver_sizes": {
+                "rows": 1,
+                "cols": 1,
+                "cell_type": "SRAM_6T_CELL",
+                "mux": false,
+                "pre": 1.0,
+                "wd_in": 1.0,
+                "wd_out": 2.0,
+                "wl_inv": 1.0,
+                "wl_nand": 1.0,
+                "loads": {
+                  "pre_load": 9.0,
+                  "wen_load": 16.75,
+                  "wl_load": 8.4,
+                  "num_sa": 2,
+                  "wenb_scale": 1,
+                  "sen_load": 15.75,
+                  "iso_load": 16.0,
+                  "sen_effort": 3.0,
+                  "access_load": 3.75
+                },
+                "source": "lookup",
+                "key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+                "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+                "dec_inv": 1.0,
+                "replica_matched": true,
+                "replica_k": 1,
+                "dc_stages": 9,
+                "effort_buffers": true,
+                "canonical_read": true,
+                "replica_precharge_guard": true,
+                "replica_nmos_models": [
+                  "NMOS_VTG",
+                  "NMOS_VTG"
+                ],
+                "replica_nmos_widths": [
+                  2.05e-07,
+                  1.35e-07
+                ],
+                "replica_pmos_model": "PMOS_VTG",
+                "replica_pmos_width": 9e-08,
+                "replica_length": 5e-08,
+                "qualified_context_key": "",
+                "area_precharge_width": 2.7e-07,
+                "area_wordline_width": 2.7e-07,
+                "area_senseamp_width": 5.4e-07,
+                "rule_version": "v2.0.5-local-1",
+                "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "precharge_guard_stages": 4,
+                "precharge_off_guard": true,
+                "precharge_off_guard_stages": 4,
+                "precharge_off_tau": 1.046e-13,
+                "control_architecture": "v2.2.0-high-access",
+                "enable_off_tau": 4.0891250000000005e-13,
+                "isolation_tau": 4.0835e-13
+              },
+              "timing": {
+                "t_period": 9e-09,
+                "low_read": 3.6e-09,
+                "low_write": 3.6e-09,
+                "high": 3.6e-09,
+                "margin": 0.25,
+                "source": "lookup",
+                "driver_key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+                "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+                "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+                "table_version": "v2.2.3-timing-1",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "qualified": false,
+                "budget": "shared"
+              },
+              "interconnect": {
+                "mode": "distributed",
+                "cell_pin_rc": false,
+                "wl": {
+                  "layer": "M2-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                },
+                "bl": {
+                  "layer": "M3-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                }
+              },
+              "equivalent": {
+                "mode": 0,
+                "approximate": false
+              },
+              "measurement": "hold_snm",
+              "failure_operator": "<",
+              "outcome_rule_version": "snm_outcomes_v1",
+              "threshold_field": "threshold_mv",
+              "threshold": 327.65
+            },
+            "missing_target_fields": [],
+            "strategy": {
+              "algorithm": "repository_MNIS_defensive_mixture",
+              "settings": {
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "strict_budget": true,
+                "skip_zero_target": true,
+                "legacy_clipping": false
+              },
+              "initialization": {
+                "method": "box_about_nominal",
+                "sigma": 3.0,
+                "lower": [
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449,
+                  0.34901000000000004,
+                  0.03825,
+                  -0.14950000000000002,
+                  -0.44183,
+                  0.017,
+                  -0.1449
+                ],
+                "upper": [
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071,
+                  0.47219,
+                  0.05175,
+                  -0.1105,
+                  -0.32656999999999997,
+                  0.023,
+                  -0.1071
+                ]
+              },
+              "initialization_sigma": 3.0,
+              "proposal_covariance": "target_diagonal",
+              "mnis_proposal_covariance": "target_diagonal",
+              "mnis_target_fraction": 0.5,
+              "batch_size": 4,
+              "estimator_profile": {
+                "id": "mnis-mixed-50",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0.5
+                }
+              }
+            },
+            "cost": {
+              "budget_protocol": "xyce_samples",
+              "budget": 12,
+              "draw_cap": 12,
+              "xyce_cap": 12,
+              "estimation_cap": null,
+              "time_limit_s": null,
+              "wall_seconds": null,
+              "legacy_budget_basis": "algorithm_requests_including_recheck_and_zero_target_draws",
+              "algorithm_requests": 12,
+              "xyce_submitted": 12,
+              "xyce_returned": 12,
+              "formal_draws": 7,
+              "unclassified_samples": 0,
+              "auxiliary_writes": null,
+              "phase_cost": {
+                "initialization": {
+                  "algorithm_charged_draws": 4,
+                  "xyce_submitted": 4,
+                  "xyce_returned": 4
+                },
+                "recheck": {
+                  "algorithm_charged_draws": 1,
+                  "xyce_submitted": 1,
+                  "xyce_returned": 1
+                },
+                "estimation": {
+                  "algorithm_charged_draws": 7,
+                  "xyce_submitted": 7,
+                  "xyce_returned": 7
+                }
+              }
+            },
+            "cost_issues": [],
+            "source": {
+              "summary": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/execution_0/mnis-mixed-50/seed_9103/mnis/run_summary.json",
+              "summary_sha256": "3c97753873c41c7854c720a898564d08411765c3f5bc9782841a0d6c3ac4185f",
+              "expected_summary_sha256": null,
+              "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+              "git_dirty": false,
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "solver": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+              "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+              "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+              "solver_identity_issue": null,
+              "compiler_version": null,
+              "issues": []
+            },
+            "planned": {
+              "profile": {
+                "id": "mnis-mixed-50",
+                "algorithm": "mnis",
+                "mode": "variant",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "estimation_batch": 1,
+                "initialization": {
+                  "method": "uniform_box",
+                  "radius_sigma": 3,
+                  "max_simulations": 10,
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop"
+                },
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0.5
+                }
+              },
+              "target": {
+                "case": "sram_6t_hold_snm",
+                "resolved_circuit": {
+                  "array": [
+                    1,
+                    1,
+                    false
+                  ],
+                  "corner": "TT",
+                  "cell_type": "SRAM_6T_CELL",
+                  "cell_6t": null,
+                  "operation": "hold_snm",
+                  "variation_mode": "custom",
+                  "real_cell_mode": 0,
+                  "w_rc": true,
+                  "target": [
+                    0,
+                    0
+                  ],
+                  "interconnect_config": null,
+                  "vdd": 1,
+                  "temperature_c": 27
+                },
+                "operation": "hold_snm",
+                "target": [
+                  0,
+                  0
+                ],
+                "relative_std": 0.05,
+                "u0_positive": true,
+                "measurement": "hold_snm",
+                "failure_operator": "<",
+                "outcome_rule_version": "snm_outcomes_v1",
+                "threshold_field": "threshold_mv",
+                "threshold": 327.65
+              },
+              "budget": 12,
+              "budget_protocol": "xyce_samples",
+              "xyce_cap": 12,
+              "draw_cap": 12,
+              "estimation_cap": null
+            },
+            "plan_issues": [],
+            "plan_target_differences": [],
+            "target_differences": [],
+            "target_status": "same",
+            "estimate_status": "linear",
+            "absolute_error": 0.7790178147850993,
+            "reference_source_match": "same"
+          }
+        ],
+        "reference": {
+          "status": "available",
+          "all_hashes_pinned": true,
+          "provenance_complete": true,
+          "estimate": 0.078125,
+          "failure_count": 10,
+          "samples": 128,
+          "interval": [
+            0.042987375050982234,
+            0.13784693180479046
+          ],
+          "confidence": 0.95,
+          "interval_method": "Wilson",
+          "sources": [
+            {
+              "summary": "/home/laiqirui/openyield-web-312f137/outputs/bench_reference_hold_20261118/mc-reference/seed_2026111801/mc/run_summary.json",
+              "summary_sha256": "2d9e30bd85e4a646f361be92178b217ee71ac76a2530e0577cea6446ed52d0cb",
+              "expected_summary_sha256": "2d9e30bd85e4a646f361be92178b217ee71ac76a2530e0577cea6446ed52d0cb",
+              "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+              "git_dirty": false,
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "solver": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+              "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+              "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+              "solver_identity_issue": null,
+              "compiler_version": "V2.2.6",
+              "issues": [],
+              "seed": 2026111801,
+              "failure_count": 10,
+              "returned": 128,
+              "validation_issues": []
+            }
+          ]
+        },
+        "methods": [
+          {
+            "estimator": "mnis-base",
+            "target_cohort": "planned_target",
+            "budget_tier": {
+              "budget": 12,
+              "budget_protocol": "xyce_samples",
+              "draw_cap": 12,
+              "estimation_cap": null,
+              "legacy_budget_basis": null,
+              "time_limit_s": null,
+              "xyce_cap": 12
+            },
+            "strategy": {
+              "estimator_profile": {
+                "algorithm": "mnis",
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "estimation_batch": 1,
+                "id": "mnis-base",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "initialization": {
+                  "max_simulations": 10,
+                  "method": "uniform_box",
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop",
+                  "radius_sigma": 3
+                },
+                "mode": "variant",
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0
+                }
+              }
+            },
+            "total_runs": 3,
+            "estimator_planned_runs": 3,
+            "estimator_no_estimate_runs": 0,
+            "estimator_no_estimate_fraction": 0.0,
+            "target_matched_runs": 3,
+            "estimates_available": 3,
+            "no_estimate_runs": 0,
+            "no_estimate_fraction": 0.0,
+            "no_estimate_reasons": {},
+            "linear_metrics_runs": 3,
+            "log_only_matched_runs": 0,
+            "weight_warning_runs": 3,
+            "above_one_runs": 0,
+            "mean_estimate": 1.654986414619343e-07,
+            "budget_protocol_check": "same",
+            "xyce_submitted_check": "same",
+            "seed_std": 2.556082563926423e-07,
+            "reference_estimate": 0.078125,
+            "reference_interval": [
+              0.042987375050982234,
+              0.13784693180479046
+            ],
+            "error_runs": 3,
+            "errors_with_unverified_or_different_source": 0,
+            "mean_absolute_error": 0.07812483450135854,
+            "rmse": 0.0781248345016373
+          },
+          {
+            "estimator": "mnis-mixed-50",
+            "target_cohort": "planned_target",
+            "budget_tier": {
+              "budget": 12,
+              "budget_protocol": "xyce_samples",
+              "draw_cap": 12,
+              "estimation_cap": null,
+              "legacy_budget_basis": null,
+              "time_limit_s": null,
+              "xyce_cap": 12
+            },
+            "strategy": {
+              "estimator_profile": {
+                "algorithm": "mnis",
+                "center_selection": {
+                  "rule": "discovery_order"
+                },
+                "estimation_batch": 1,
+                "id": "mnis-mixed-50",
+                "initial_batch": 4,
+                "initial_failures": 1,
+                "initialization": {
+                  "max_simulations": 10,
+                  "method": "uniform_box",
+                  "min_failed_candidates": 1,
+                  "on_insufficient": "stop",
+                  "radius_sigma": 3
+                },
+                "mode": "variant",
+                "proposal": {
+                  "covariance": "target_diagonal",
+                  "std_scale": 1,
+                  "target_fraction": 0.5
+                }
+              }
+            },
+            "total_runs": 3,
+            "estimator_planned_runs": 3,
+            "estimator_no_estimate_runs": 0,
+            "estimator_no_estimate_fraction": 0.0,
+            "target_matched_runs": 3,
+            "estimates_available": 3,
+            "no_estimate_runs": 0,
+            "no_estimate_fraction": 0.0,
+            "no_estimate_reasons": {},
+            "linear_metrics_runs": 3,
+            "log_only_matched_runs": 0,
+            "weight_warning_runs": 0,
+            "above_one_runs": 0,
+            "mean_estimate": 0.38073956765540007,
+            "budget_protocol_check": "same",
+            "xyce_submitted_check": "same",
+            "seed_std": 0.43650556229256804,
+            "reference_estimate": 0.078125,
+            "reference_interval": [
+              0.042987375050982234,
+              0.13784693180479046
+            ],
+            "error_runs": 3,
+            "errors_with_unverified_or_different_source": 0,
+            "mean_absolute_error": 0.3546979009887313,
+            "rmse": 0.467547124718103
+          }
+        ],
+        "name": "1×1 · 保持裕量"
+      },
+      {
+        "id": "circuit1-experiment",
+        "checks": {
+          "total_runs": 1,
+          "target_anchor": {
+            "estimator": "mc",
+            "seed": 2
+          },
+          "target_same": 1,
+          "target_different": 0,
+          "target_unknown": 0,
+          "source_incomplete": 0,
+          "cost_incomplete": 0,
+          "plan_mismatch": 0,
+          "plan_target_mismatch": 0,
+          "run_list_basis": "frozen_plan",
+          "source_revision_check": "same",
+          "solver_version_check": "same",
+          "solver_sha256_check": "same",
+          "budget_protocol_check": "same",
+          "draw_cap_check": "same",
+          "formal_draw_cap_check": "unknown",
+          "xyce_submitted_check": "same",
+          "xyce_returned_check": "same",
+          "time_limit_check": "unknown",
+          "reference_status": "not_specified",
+          "ranking_eligible": false
+        },
+        "runs": [
+          {
+            "estimator": "mc",
+            "seed": 2,
+            "observed_seed": 2,
+            "case": "sram_6t_3x2_read",
+            "implementation": "repository_MC",
+            "mode": "reference",
+            "status": "complete",
+            "detail": null,
+            "numeric_status": null,
+            "pfail_estimate": 0.0,
+            "log10_pfail": null,
+            "warnings": [],
+            "estimate_available": true,
+            "linear_usable": true,
+            "source_integrity": true,
+            "seed_matches": true,
+            "target": {
+              "resolved_circuit": {
+                "array": [
+                  3,
+                  2,
+                  false
+                ],
+                "corner": "TT",
+                "cell_type": "SRAM_6T_CELL",
+                "cell_6t": null,
+                "operation": "read",
+                "variation_mode": "custom",
+                "real_cell_mode": 0,
+                "w_rc": true,
+                "target": [
+                  1,
+                  1
+                ],
+                "interconnect_config": null,
+                "vdd": 1,
+                "temperature_c": 27
+              },
+              "operation": "read",
+              "target": [
+                1,
+                1
+              ],
+              "relative_std": 0.05,
+              "u0_positive": true,
+              "sampling_source": "numpy_independent_positive_u0",
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "nominal_parameters_per_cell": [
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126,
+                0.4106,
+                0.045,
+                -0.13,
+                -0.3842,
+                0.02,
+                -0.126
+              ],
+              "bitcell_parameter_order": [
+                "PGL.vth0",
+                "PGL.u0",
+                "PGL.voff",
+                "PGR.vth0",
+                "PGR.u0",
+                "PGR.voff",
+                "PDL.vth0",
+                "PDL.u0",
+                "PDL.voff",
+                "PUL.vth0",
+                "PUL.u0",
+                "PUL.voff",
+                "PDR.vth0",
+                "PDR.u0",
+                "PDR.voff",
+                "PUR.vth0",
+                "PUR.u0",
+                "PUR.voff"
+              ],
+              "driver_sizes": {
+                "rows": 3,
+                "cols": 2,
+                "cell_type": "SRAM_6T_CELL",
+                "mux": false,
+                "pre": 1.0,
+                "wd_in": 1.0,
+                "wd_out": 2.0,
+                "wl_inv": 1.0,
+                "wl_nand": 1.0,
+                "loads": {
+                  "pre_load": 13.25,
+                  "wen_load": 22.25,
+                  "wl_load": 16.8,
+                  "num_sa": 3,
+                  "wenb_scale": 1,
+                  "sen_load": 20.5,
+                  "iso_load": 24.0,
+                  "sen_effort": 3.0,
+                  "access_load": 3.75
+                },
+                "source": "lookup",
+                "key": "5e694bc4b529b91fb8c59dfefd2e45ecefdb74cb8920ea5f985a12a0c2be0be2",
+                "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+                "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+                "dec_inv": 1.0,
+                "replica_matched": true,
+                "replica_k": 1,
+                "dc_stages": 9,
+                "effort_buffers": true,
+                "canonical_read": true,
+                "replica_precharge_guard": true,
+                "replica_nmos_models": [
+                  "NMOS_VTG",
+                  "NMOS_VTG"
+                ],
+                "replica_nmos_widths": [
+                  2.05e-07,
+                  1.35e-07
+                ],
+                "replica_pmos_model": "PMOS_VTG",
+                "replica_pmos_width": 9e-08,
+                "replica_length": 5e-08,
+                "qualified_context_key": "",
+                "area_precharge_width": 2.7e-07,
+                "area_wordline_width": 2.7e-07,
+                "area_senseamp_width": 5.4e-07,
+                "rule_version": "v2.0.5-local-1",
+                "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "precharge_guard_stages": 4,
+                "precharge_off_guard": true,
+                "precharge_off_guard_stages": 4,
+                "precharge_off_tau": 1.1365e-13,
+                "control_architecture": "v2.2.0-high-access",
+                "enable_off_tau": 4.2352500000000006e-13,
+                "isolation_tau": 4.2490000000000004e-13
+              },
+              "timing": {
+                "t_period": 9e-09,
+                "low_read": 3.6e-09,
+                "low_write": 3.6e-09,
+                "high": 3.6e-09,
+                "margin": 0.25,
+                "source": "lookup",
+                "driver_key": "5e694bc4b529b91fb8c59dfefd2e45ecefdb74cb8920ea5f985a12a0c2be0be2",
+                "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+                "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+                "table_version": "v2.2.3-timing-1",
+                "size_class": "rows<=32/cols<=4",
+                "extrapolated": false,
+                "qualified": false,
+                "budget": "shared"
+              },
+              "interconnect": {
+                "mode": "distributed",
+                "cell_pin_rc": false,
+                "wl": {
+                  "layer": "M2-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                },
+                "bl": {
+                  "layer": "M3-reference",
+                  "pitch_m": 6e-07,
+                  "width_m": 1e-07,
+                  "sheet_resistance_ohm": 0.16666666666666666,
+                  "capacitance_f_per_m": 1.6666666666666666e-10,
+                  "sections_per_half_pitch": 1
+                }
+              },
+              "equivalent": {
+                "mode": 0,
+                "approximate": false
+              },
+              "measurement": "TREAD_TOTAL",
+              "failure_operator": ">",
+              "outcome_rule_version": "read_outcomes_v1",
+              "threshold_field": "threshold_ns",
+              "threshold": 1
+            },
+            "missing_target_fields": [],
+            "strategy": {
+              "algorithm": "repository_MC",
+              "batch_size": 3,
+              "estimator_profile": {
+                "id": "mc",
+                "algorithm": "mc",
+                "mode": "reference"
+              }
+            },
+            "cost": {
+              "budget_protocol": "xyce_samples",
+              "budget": 4,
+              "draw_cap": 4,
+              "xyce_cap": 4,
+              "estimation_cap": null,
+              "time_limit_s": null,
+              "wall_seconds": null,
+              "legacy_budget_basis": null,
+              "algorithm_requests": 4,
+              "xyce_submitted": 4,
+              "xyce_returned": 4,
+              "formal_draws": 4,
+              "unclassified_samples": 0,
+              "auxiliary_writes": null,
+              "phase_cost": {
+                "estimation": {
+                  "algorithm_charged_draws": 4,
+                  "xyce_submitted": 4,
+                  "xyce_returned": 4
+                }
+              }
+            },
+            "cost_issues": [],
+            "source": {
+              "summary": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/execution_1/mc/seed_2/mc/run_summary.json",
+              "summary_sha256": "68e16651704516b54b3b833e7502955264e80643a4c2a67b4826a79ec6eec13a",
+              "expected_summary_sha256": null,
+              "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+              "git_dirty": false,
+              "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+              "solver": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+              "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+              "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+              "solver_identity_issue": null,
+              "compiler_version": "V2.2.6",
+              "issues": []
+            },
+            "planned": {
+              "profile": {
+                "id": "mc",
+                "algorithm": "mc",
+                "mode": "reference"
+              },
+              "target": {
+                "case": "sram_6t_3x2_read",
+                "resolved_circuit": {
+                  "array": [
+                    3,
+                    2,
+                    false
+                  ],
+                  "corner": "TT",
+                  "cell_type": "SRAM_6T_CELL",
+                  "cell_6t": null,
+                  "operation": "read",
+                  "variation_mode": "custom",
+                  "real_cell_mode": 0,
+                  "w_rc": true,
+                  "target": [
+                    1,
+                    1
+                  ],
+                  "interconnect_config": null,
+                  "vdd": 1,
+                  "temperature_c": 27
+                },
+                "operation": "read",
+                "target": [
+                  1,
+                  1
+                ],
+                "relative_std": 0.05,
+                "u0_positive": true,
+                "measurement": "TREAD_TOTAL",
+                "failure_operator": ">",
+                "outcome_rule_version": "read_outcomes_v1",
+                "threshold_field": "threshold_ns",
+                "threshold": 1
+              },
+              "budget": 4,
+              "budget_protocol": "xyce_samples",
+              "xyce_cap": 4,
+              "draw_cap": 4,
+              "estimation_cap": null
+            },
+            "plan_issues": [],
+            "plan_target_differences": [],
+            "target_differences": [],
+            "target_status": "same",
+            "estimate_status": "linear",
+            "absolute_error": null,
+            "reference_source_match": "not_available"
+          }
+        ],
+        "reference": {
+          "status": "not_specified",
+          "estimate": null,
+          "interval": null,
+          "sources": []
+        },
+        "methods": [
+          {
+            "estimator": "mc",
+            "target_cohort": "planned_target",
+            "budget_tier": {
+              "budget": 4,
+              "budget_protocol": "xyce_samples",
+              "draw_cap": 4,
+              "estimation_cap": null,
+              "legacy_budget_basis": null,
+              "time_limit_s": null,
+              "xyce_cap": 4
+            },
+            "strategy": {
+              "estimator_profile": {
+                "algorithm": "mc",
+                "id": "mc",
+                "mode": "reference"
+              }
+            },
+            "total_runs": 1,
+            "estimator_planned_runs": 1,
+            "estimator_no_estimate_runs": 0,
+            "estimator_no_estimate_fraction": 0.0,
+            "target_matched_runs": 1,
+            "estimates_available": 1,
+            "no_estimate_runs": 0,
+            "no_estimate_fraction": 0.0,
+            "no_estimate_reasons": {},
+            "linear_metrics_runs": 1,
+            "log_only_matched_runs": 0,
+            "weight_warning_runs": 0,
+            "above_one_runs": 0,
+            "mean_estimate": 0.0,
+            "budget_protocol_check": "same",
+            "xyce_submitted_check": "same",
+            "seed_std": null,
+            "reference_estimate": null,
+            "reference_interval": null,
+            "error_runs": 0,
+            "errors_with_unverified_or_different_source": 0,
+            "mean_absolute_error": null,
+            "rmse": null
+          }
+        ],
+        "name": "3×2 · 读延迟"
+      }
+    ]
+  }
+}

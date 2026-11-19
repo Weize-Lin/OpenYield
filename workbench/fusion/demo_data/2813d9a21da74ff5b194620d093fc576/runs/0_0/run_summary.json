@@ -1,0 +1,385 @@
+{
+  "case": "sram_6t_hold_snm",
+  "corner": "TT",
+  "vdd": 1,
+  "temperature_c": 27,
+  "relative_std": 0.05,
+  "u0_positive": true,
+  "batch_size": 4,
+  "threshold_mv": 327.65,
+  "circuit": {
+    "array": [
+      1,
+      1,
+      false
+    ],
+    "corner": "TT",
+    "cell_type": "SRAM_6T_CELL",
+    "cell_6t": null,
+    "operation": "hold_snm",
+    "variation_mode": "custom",
+    "real_cell_mode": 0,
+    "w_rc": true,
+    "target": [
+      0,
+      0
+    ],
+    "interconnect_config": null,
+    "vdd": 1,
+    "temperature_c": 27
+  },
+  "seed": 9101,
+  "budget": 12,
+  "research": {
+    "budget_unit": "xyce_samples",
+    "max_algorithm_draws": 12,
+    "estimator": {
+      "id": "mnis-base",
+      "algorithm": "mnis",
+      "mode": "variant",
+      "initial_batch": 4,
+      "initial_failures": 1,
+      "estimation_batch": 1,
+      "initialization": {
+        "method": "uniform_box",
+        "radius_sigma": 3,
+        "max_simulations": 10,
+        "min_failed_candidates": 1,
+        "on_insufficient": "stop"
+      },
+      "center_selection": {
+        "rule": "discovery_order"
+      },
+      "proposal": {
+        "covariance": "target_diagonal",
+        "std_scale": 1,
+        "target_fraction": 0
+      }
+    }
+  },
+  "initialization_sigma": 3.0,
+  "mnis_proposal_covariance": "target_diagonal",
+  "mnis_target_fraction": 0,
+  "algorithm": "repository_MNIS_configured_proposal",
+  "git_revision": "312f137e9ab960f1178f4991d9bf4675575e2f01",
+  "git_tracked_files_modified": false,
+  "budget_basis": "algorithm_requests_including_recheck_and_zero_target_draws",
+  "config_batch_size_note": "MC setting; MNIS uses mnis_settings.json",
+  "process_param_format": ".17g",
+  "settings": {
+    "initial_batch": 4,
+    "initial_failures": 1,
+    "estimation_batch": 1,
+    "strict_budget": true,
+    "skip_zero_target": true,
+    "legacy_clipping": false
+  },
+  "operation": "hold_snm",
+  "measurement": "hold_snm",
+  "measurement_column": "hold_snm_v",
+  "failure_operator": "<",
+  "threshold_field": "threshold_mv",
+  "outcome_rule_version": "snm_outcomes_v1",
+  "xyce": "/home/laiqirui/miniconda3/envs/openyield/bin/Xyce",
+  "xyce_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+  "xyce_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+  "sampling_source": "numpy_independent_positive_u0",
+  "sample_parameters_saved": true,
+  "approximation": false,
+  "bitcell_table_parameters": 18,
+  "resolved_circuit": {
+    "array": [
+      1,
+      1,
+      false
+    ],
+    "corner": "TT",
+    "cell_type": "SRAM_6T_CELL",
+    "cell_6t": null,
+    "operation": "hold_snm",
+    "variation_mode": "custom",
+    "real_cell_mode": 0,
+    "w_rc": true,
+    "target": [
+      0,
+      0
+    ],
+    "interconnect_config": null,
+    "vdd": 1,
+    "temperature_c": 27
+  },
+  "rows": 1,
+  "cols": 1,
+  "target": [
+    0,
+    0
+  ],
+  "dimensions": 18,
+  "model_path": "/home/laiqirui/openyield-web-312f137/tran_models/models_TT.spice",
+  "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+  "cell_type": "SRAM_6T_CELL",
+  "nominal_parameters_per_cell": [
+    0.4106,
+    0.045,
+    -0.13,
+    0.4106,
+    0.045,
+    -0.13,
+    0.4106,
+    0.045,
+    -0.13,
+    -0.3842,
+    0.02,
+    -0.126,
+    0.4106,
+    0.045,
+    -0.13,
+    -0.3842,
+    0.02,
+    -0.126
+  ],
+  "bitcell_parameter_order": [
+    "PGL.vth0",
+    "PGL.u0",
+    "PGL.voff",
+    "PGR.vth0",
+    "PGR.u0",
+    "PGR.voff",
+    "PDL.vth0",
+    "PDL.u0",
+    "PDL.voff",
+    "PUL.vth0",
+    "PUL.u0",
+    "PUL.voff",
+    "PDR.vth0",
+    "PDR.u0",
+    "PDR.voff",
+    "PUR.vth0",
+    "PUR.u0",
+    "PUR.voff"
+  ],
+  "driver_sizes": {
+    "rows": 1,
+    "cols": 1,
+    "cell_type": "SRAM_6T_CELL",
+    "mux": false,
+    "pre": 1.0,
+    "wd_in": 1.0,
+    "wd_out": 2.0,
+    "wl_inv": 1.0,
+    "wl_nand": 1.0,
+    "loads": {
+      "pre_load": 9.0,
+      "wen_load": 16.75,
+      "wl_load": 8.4,
+      "num_sa": 2,
+      "wenb_scale": 1,
+      "sen_load": 15.75,
+      "iso_load": 16.0,
+      "sen_effort": 3.0,
+      "access_load": 3.75
+    },
+    "source": "lookup",
+    "key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+    "peripheral_key": "fe20ce67cc9ed272a7a3ea8b90aed27ecf8b8361182ff33d3a5f244f3d63aee2",
+    "pdk_key": "8a3b1a6de16a2f3855a0b8eb189c2892942d158b6c848dbf82cbbdb48b2af7b5",
+    "dec_inv": 1.0,
+    "replica_matched": true,
+    "replica_k": 1,
+    "dc_stages": 9,
+    "effort_buffers": true,
+    "canonical_read": true,
+    "replica_precharge_guard": true,
+    "replica_nmos_models": [
+      "NMOS_VTG",
+      "NMOS_VTG"
+    ],
+    "replica_nmos_widths": [
+      2.05e-07,
+      1.35e-07
+    ],
+    "replica_pmos_model": "PMOS_VTG",
+    "replica_pmos_width": 9e-08,
+    "replica_length": 5e-08,
+    "qualified_context_key": "",
+    "area_precharge_width": 2.7e-07,
+    "area_wordline_width": 2.7e-07,
+    "area_senseamp_width": 5.4e-07,
+    "rule_version": "v2.0.5-local-1",
+    "physical_key": "aeb074d33d829b7da6919297047f98f1cfa1cb9a00fa571d1a545d1ee1195978",
+    "size_class": "rows<=32/cols<=4",
+    "extrapolated": false,
+    "precharge_guard_stages": 4,
+    "precharge_off_guard": true,
+    "precharge_off_guard_stages": 4,
+    "precharge_off_tau": 1.046e-13,
+    "control_architecture": "v2.2.0-high-access",
+    "enable_off_tau": 4.0891250000000005e-13,
+    "isolation_tau": 4.0835e-13
+  },
+  "timing": {
+    "t_period": 9e-09,
+    "low_read": 3.6e-09,
+    "low_write": 3.6e-09,
+    "high": 3.6e-09,
+    "margin": 0.25,
+    "source": "lookup",
+    "driver_key": "3cd6a42ea123da03bbd8c2b69742d7bb0f5a8dd8b09cc29ef50a96254e317e84",
+    "options_key": "83d3983d467d95127e6864b1757a8101bfaae1213d891e915bc62b86db70a45b",
+    "table_sha256": "d8e1238086c6a6e33ac4e63a6ebd4b833f0454d5dbe8f97bbd34e00e50a24d8a",
+    "table_version": "v2.2.3-timing-1",
+    "size_class": "rows<=32/cols<=4",
+    "extrapolated": false,
+    "qualified": false,
+    "budget": "shared"
+  },
+  "interconnect": {
+    "mode": "distributed",
+    "cell_pin_rc": false,
+    "wl": {
+      "layer": "M2-reference",
+      "pitch_m": 6e-07,
+      "width_m": 1e-07,
+      "sheet_resistance_ohm": 0.16666666666666666,
+      "capacitance_f_per_m": 1.6666666666666666e-10,
+      "sections_per_half_pitch": 1
+    },
+    "bl": {
+      "layer": "M3-reference",
+      "pitch_m": 6e-07,
+      "width_m": 1e-07,
+      "sheet_resistance_ohm": 0.16666666666666666,
+      "capacitance_f_per_m": 1.6666666666666666e-10,
+      "sections_per_half_pitch": 1
+    }
+  },
+  "equivalent": {
+    "mode": 0,
+    "approximate": false
+  },
+  "nominal_parameters": [
+    0.4106,
+    0.045,
+    -0.13,
+    0.4106,
+    0.045,
+    -0.13,
+    0.4106,
+    0.045,
+    -0.13,
+    -0.3842,
+    0.02,
+    -0.126,
+    0.4106,
+    0.045,
+    -0.13,
+    -0.3842,
+    0.02,
+    -0.126
+  ],
+  "initialization": {
+    "method": "box_about_nominal",
+    "sigma": 3.0,
+    "lower": [
+      0.34901000000000004,
+      0.03825,
+      -0.14950000000000002,
+      0.34901000000000004,
+      0.03825,
+      -0.14950000000000002,
+      0.34901000000000004,
+      0.03825,
+      -0.14950000000000002,
+      -0.44183,
+      0.017,
+      -0.1449,
+      0.34901000000000004,
+      0.03825,
+      -0.14950000000000002,
+      -0.44183,
+      0.017,
+      -0.1449
+    ],
+    "upper": [
+      0.47219,
+      0.05175,
+      -0.1105,
+      0.47219,
+      0.05175,
+      -0.1105,
+      0.47219,
+      0.05175,
+      -0.1105,
+      -0.32656999999999997,
+      0.023,
+      -0.1071,
+      0.47219,
+      0.05175,
+      -0.1105,
+      -0.32656999999999997,
+      0.023,
+      -0.1071
+    ]
+  },
+  "proposal_covariance": "target_diagonal",
+  "research_cost": {
+    "budget_unit": "xyce_samples",
+    "xyce_cap": 12,
+    "algorithm_draw_cap": 12,
+    "fixed_estimation_draw_cap": null,
+    "initialization_outcome": "selected",
+    "phases": {
+      "initialization": {
+        "algorithm_charged_draws": 4,
+        "xyce_submitted": 4,
+        "xyce_returned": 4
+      },
+      "recheck": {
+        "algorithm_charged_draws": 1,
+        "xyce_submitted": 1,
+        "xyce_returned": 1
+      },
+      "estimation": {
+        "algorithm_charged_draws": 7,
+        "xyce_submitted": 7,
+        "xyce_returned": 7
+      }
+    }
+  },
+  "target_mixture_draws": 0,
+  "status": "budget_stopped",
+  "detail": "Used 12/12; next estimation batch needs 1",
+  "diagnostics": {
+    "estimation_draws_evaluated": 7,
+    "supported_estimation_draws": 7,
+    "log10_pfail": -6.33734407424279,
+    "log_domain_pfail": 4.598920750139648e-07,
+    "numeric_status": "representable"
+  },
+  "sampling_diagnostics": {
+    "log10_mean_weight": -5.2747686422928055,
+    "weight_ess": 1.544408374363521,
+    "warnings": [
+      "low_observed_weight_mass"
+    ]
+  },
+  "algorithm_requested_samples": 12,
+  "phase_samples": {
+    "initialization": 4,
+    "recheck": 1,
+    "estimation": 7
+  },
+  "zero_target_samples": 0,
+  "simulator_submitted_samples": 12,
+  "simulator_returned_samples": 12,
+  "original_estimate": {
+    "pfail": 4.598920750139647e-07,
+    "FOM": 0.6414059363041925,
+    "samples": 12
+  },
+  "pfail_estimate": 4.598920750139648e-07,
+  "log10_pfail": -6.33734407424279,
+  "ranking_eligible": false,
+  "unclassified_samples": 0,
+  "margin_failures": 8
+}

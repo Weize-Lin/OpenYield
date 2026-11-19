@@ -1,0 +1,5 @@
+# Evidence bytes must stay identical across platforms (sha256 checks).
+demo_data/** -text
+demo_site/demo-data.js -text
+artifacts/*.csv -text
+artifacts/*.json -text

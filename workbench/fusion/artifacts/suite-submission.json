@@ -1,0 +1,170 @@
+{
+  "id": "2813d9a21da74ff5b194620d093fc576",
+  "name": "套件验收 · 保持对照+读取MC",
+  "status": "running",
+  "offline": false,
+  "kind": "suite",
+  "source": "local",
+  "directory": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576",
+  "created_at": "2026-11-18T11:45:02.454275+00:00",
+  "config": null,
+  "references": [],
+  "time_limit_seconds": 1800,
+  "plan_count": 7,
+  "suite": [
+    {
+      "index": 0,
+      "label": "1×1 · 保持裕量",
+      "config": {
+        "schema_version": 1,
+        "experiment": {
+          "case": "sram_6t_hold_snm",
+          "corner": "TT",
+          "vdd": 1,
+          "temperature_c": 27,
+          "relative_std": 0.05,
+          "u0_positive": true,
+          "batch_size": 4,
+          "threshold_mv": 327.65,
+          "circuit": {
+            "array": [
+              1,
+              1,
+              false
+            ],
+            "corner": "TT",
+            "cell_type": "SRAM_6T_CELL",
+            "cell_6t": null,
+            "operation": "hold_snm",
+            "variation_mode": "custom",
+            "real_cell_mode": 0,
+            "w_rc": true,
+            "target": [
+              0,
+              0
+            ],
+            "interconnect_config": null,
+            "vdd": 1,
+            "temperature_c": 27
+          }
+        },
+        "budget_unit": "xyce_samples",
+        "budget_per_algorithm": 12,
+        "max_algorithm_draws": 12,
+        "seeds": [
+          9101,
+          9102,
+          9103
+        ],
+        "estimators": [
+          {
+            "id": "mnis-base",
+            "algorithm": "mnis",
+            "mode": "variant",
+            "initial_batch": 4,
+            "initial_failures": 1,
+            "estimation_batch": 1,
+            "initialization": {
+              "method": "uniform_box",
+              "radius_sigma": 3,
+              "max_simulations": 10,
+              "min_failed_candidates": 1,
+              "on_insufficient": "stop"
+            },
+            "center_selection": {
+              "rule": "discovery_order"
+            },
+            "proposal": {
+              "covariance": "target_diagonal",
+              "std_scale": 1,
+              "target_fraction": 0
+            }
+          },
+          {
+            "id": "mnis-mixed-50",
+            "algorithm": "mnis",
+            "mode": "variant",
+            "initial_batch": 4,
+            "initial_failures": 1,
+            "estimation_batch": 1,
+            "initialization": {
+              "method": "uniform_box",
+              "radius_sigma": 3,
+              "max_simulations": 10,
+              "min_failed_candidates": 1,
+              "on_insufficient": "stop"
+            },
+            "center_selection": {
+              "rule": "discovery_order"
+            },
+            "proposal": {
+              "covariance": "target_diagonal",
+              "std_scale": 1,
+              "target_fraction": 0.5
+            }
+          }
+        ]
+      },
+      "references": [
+        "/home/laiqirui/openyield-web-312f137/outputs/bench_reference_hold_20261118/mc-reference/seed_2026111801/mc"
+      ],
+      "tasks": 6,
+      "sample_cap": 72
+    },
+    {
+      "index": 1,
+      "label": "3×2 · 读延迟",
+      "config": {
+        "schema_version": 1,
+        "experiment": {
+          "case": "sram_6t_3x2_read",
+          "corner": "TT",
+          "vdd": 1,
+          "temperature_c": 27,
+          "relative_std": 0.05,
+          "u0_positive": true,
+          "threshold_ns": 1,
+          "batch_size": 3,
+          "circuit": {
+            "array": [
+              3,
+              2,
+              false
+            ],
+            "corner": "TT",
+            "cell_type": "SRAM_6T_CELL",
+            "cell_6t": null,
+            "operation": "read",
+            "variation_mode": "custom",
+            "real_cell_mode": 0,
+            "w_rc": true,
+            "target": [
+              1,
+              1
+            ],
+            "interconnect_config": null,
+            "vdd": 1,
+            "temperature_c": 27
+          }
+        },
+        "budget_unit": "xyce_samples",
+        "budget_per_algorithm": 4,
+        "max_algorithm_draws": 4,
+        "seeds": [
+          2
+        ],
+        "estimators": [
+          {
+            "id": "mc",
+            "algorithm": "mc",
+            "mode": "reference"
+          }
+        ]
+      },
+      "references": [],
+      "tasks": 1,
+      "sample_cap": 4
+    }
+  ],
+  "manifest": "/home/laiqirui/openyield-web-312f137/outputs/fusion_web_20261118/2813d9a21da74ff5b194620d093fc576/analysis/analysis_manifest.json"
+}

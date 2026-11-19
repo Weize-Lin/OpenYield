@@ -1,0 +1,19 @@
+OpenYield Fusion
+Copyright 2026 the OpenYield Fusion contributors.
+
+This product includes software developed as part of OpenYield
+(https://github.com/ShenShan123/OpenYield), licensed under Apache-2.0.
+
+The experiment execution and result analysis core comes from the collaboration
+branch https://github.com/Weize-Lin/OpenYield. The integrated workbench calls
+the current checkout through evaluation API version 1. Shared suite replay and
+execution orchestration have been extended; algorithm strategies, device models
+and failure criteria are preserved. Git history records both contributors.
+
+The existing demo bundles were historically generated with commit
+312f137e9ab960f1178f4991d9bf4675575e2f01. Their records and original attribution
+are retained, and are not relabelled as current-checkout simulation results.
+
+Fusion adds the web workbench, multi-circuit suite orchestration,
+evidence/dataset endpoints, demo bundling, tests and documentation.
+See README.md and INTEGRATION_REPORT.md for scope and verification limits.
