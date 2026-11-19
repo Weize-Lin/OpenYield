@@ -28,25 +28,25 @@
 通过 `evaluation/compatibility.py` 的软件接口版本和能力检查确认入口可调用，
 并检查实际导入模块所在位置，防止导入电脑上另一份同名代码。
 
-`server.py:37` 的 `upstream()` 连接共享入口；`:56` 的 `source_snapshot()` 读取真实 Git 状态；
-`:201` 的 `_check_runnable()` 拒绝未提交的已跟踪修改及服务启动后的版本切换。
+`server.py:37` 的 `upstream()` 连接共享入口；`:59` 的 `source_snapshot()` 读取真实 Git 状态；
+`:204` 的 `_check_runnable()` 拒绝未提交的已跟踪修改及服务启动后的版本切换。
 每次新任务保存当前源码来源，后端原有的模型、求解器版本与哈希记录继续生效。
 软件接口版本不表示算法通过论文一致性验证。
 
 ### 2. 整轮只有一个截止时间
 
-`server.py:395` 的 `_execute_suite()` 只建立一次截止时间。每个电路使用
+`server.py:398` 的 `_execute_suite()` 只建立一次截止时间。每个电路使用
 `截止时间 - 当前时间`，不会重新拿到完整限时。
 模拟时钟案例实际记录的两个允许时长为 **30 秒、10 秒**。
 时间耗尽后，后面的电路保留 `not_started_after_timeout`。
 进程终止宽限为最多 30 秒；最终分析所花时间另计。
 
-`server.py:433` 的 `_terminate()` 复用后端现有 `stop_group()`。
+`server.py:436` 的 `_terminate()` 复用后端现有 `stop_group()`。
 即使主进程先退出，也继续清理该组内可能残留的进程，避免两套取消规则逐渐分叉。
 
 ### 3. 先记全计划，再开始执行
 
-`server.py:271` 的 `start_suite()` 在开线程之前保存全部电路；
+`server.py:274` 的 `start_suite()` 在开线程之前保存全部电路；
 新增共享 `suite_analysis.py:20` 的 `freeze_suite()` 保存配置、各电路完整任务列表、
 参考摘要哈希以及套件整体计划。未运行的电路也已经有预定输出位置。
 

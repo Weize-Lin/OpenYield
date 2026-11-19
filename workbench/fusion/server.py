@@ -38,8 +38,11 @@ def upstream():
     global _upstream, _backend_revision
     if _upstream is None:
         sys.path.insert(0, str(ROOT))
-        from yield_estimation.evaluation import analyze_results, experiment
-        from yield_estimation.evaluation import compatibility
+        try:
+            from yield_estimation.evaluation import analyze_results, experiment
+            from yield_estimation.evaluation import compatibility
+        except ImportError as exc:
+            raise ValueError("后端接口或依赖不可用，请使用集成分支并核对 Python 环境：" + str(exc)) from exc
         for module in (analyze_results, experiment, compatibility):
             if ROOT not in Path(module.__file__).resolve().parents:
                 raise ValueError("后端模块来自其他目录，请重新启动并核对 OPENYIELD_REPOSITORY。")
