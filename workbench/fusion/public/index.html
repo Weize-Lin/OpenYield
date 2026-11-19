@@ -73,6 +73,8 @@
         <p class="hint">套件是多个单电路实验配置的数组；每个配置可带自己的 references。提交后按电路顺序执行，矩阵按电路分列。合计仿真上限不超过 400。</p>
         <label class="sr-only" for="suite-json">套件 JSON（实验配置数组）</label>
         <textarea id="suite-json" class="code-editor" spellcheck="false" rows="10" placeholder='[{"config": {...}, "references": ["..."]}, ...]'></textarea>
+        <label>套件整轮限时 / 秒<input id="suite-time-limit" type="number" min="1" max="3600" step="1" value="1800" required></label>
+        <p class="hint">所有电路共用此运行限时；进程终止宽限最多 30 秒，最终分析另计。</p>
         <div class="toolbar"><button id="suite-validate" type="button" class="primary" disabled>校验套件</button><button id="suite-run" type="button" class="primary" disabled>运行已校验套件</button></div>
         <p id="suite-message" class="feedback" role="status" aria-live="polite">尚未校验套件。</p>
         <div id="suite-plan"></div>

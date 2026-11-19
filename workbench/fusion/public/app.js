@@ -939,8 +939,10 @@
       const valid = state.suiteValidated;
       if (!valid || valid.text !== $("suite-json").value) throw new Error("请先校验当前套件。");
       if (busy()) throw new Error("当前有活动任务，不支持排队。");
+      const limit = Number($("suite-time-limit").value);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 3600) throw new Error("套件整轮限时须为 1–3600 秒的整数。");
       state.suiteValidated = null;
-      const job = await api("/api/suite/run", { name: "多电路套件", experiments: valid.experiments, time_limit_seconds: 1800 });
+      const job = await api("/api/suite/run", { name: "多电路套件", experiments: valid.experiments, time_limit_seconds: limit });
       await acceptJob(job); navigate("overview");
       $("suite-message").textContent = "套件已提交；再次运行前请重新校验。"; $("suite-message").className = "feedback success";
     } catch (error) {
