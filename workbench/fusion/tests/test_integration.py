@@ -248,17 +248,17 @@ class IntegrationTests(unittest.TestCase):
     def test_child_timeout_uses_given_allowance_and_grace(self):
         job = self.job()
         fake = unittest.mock.Mock()
-        fake.wait.side_effect = [subprocess.TimeoutExpired('fixture', 7), 0]
+        fake.wait.side_effect = [subprocess.TimeoutExpired('fixture', 7), 0, 0]
         fake.returncode = -15
         fake.poll.return_value = None
         fake.pid = 12345
         with patch.object(self.jobs, '_check_runnable', return_value={}), \
              patch.object(server.subprocess, 'Popen', return_value=fake), \
-             patch.object(self.jobs, '_signal') as signal:
+             patch('yield_estimation.evaluation._process_limits.os.killpg') as signal:
             code = self.jobs._run_child(job, job['suite'][0]['config'], [], 7., Path(job['directory'])/'execution_0')
         self.assertEqual(code, 124)
-        self.assertEqual([c.kwargs['timeout'] for c in fake.wait.call_args_list], [7., 30])
-        self.assertEqual(signal.call_count, 1)
+        self.assertEqual([c.kwargs.get('timeout') for c in fake.wait.call_args_list], [7., 30, None])
+        self.assertEqual(signal.call_count, 2)
         self.assertFalse(self.jobs.processes)
 
 

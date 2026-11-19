@@ -430,21 +430,10 @@ class LocalJobs:
             job["status"] = ("cancelled" if job.get("cancel_requested") else "timeout" if halted == "timeout"
                              else "complete" if all(p["status"] == "complete" for p in job["suite"]) else "incomplete")
 
-    @staticmethod
-    def _signal(process, value):
-        if process.poll() is None:
-            try:
-                os.killpg(process.pid, value)
-            except ProcessLookupError:
-                pass
-
     def _terminate(self, process):
-        self._signal(process, signal.SIGTERM)
-        try:
-            process.wait(timeout=TERMINATION_GRACE_SECONDS)
-        except subprocess.TimeoutExpired:
-            self._signal(process, signal.SIGKILL)
-            process.wait()
+        # Reuse the backend rule: clean the group even if its leader exited first.
+        from yield_estimation.evaluation._process_limits import stop_group
+        stop_group(process, TERMINATION_GRACE_SECONDS)
 
     def cancel(self, identifier):
         with self.lock:
