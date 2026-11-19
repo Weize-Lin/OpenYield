@@ -19,12 +19,14 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 from urllib.parse import parse_qs, urlsplit
 import uuid
 
-ROOT = Path(os.environ.get("OPENYIELD_REPOSITORY", Path.home() / "openyield-web-312f137")).resolve()
+ROOT = Path(os.environ.get("OPENYIELD_REPOSITORY", Path(__file__).resolve().parents[2])).resolve()
 STATIC = Path(__file__).with_name("public")
-REVISION = "312f137e9ab960f1178f4991d9bf4675575e2f01"
+TERMINATION_GRACE_SECONDS = 30
+_backend_revision = None
 TABLES = ("runs.csv", "methods.csv", "groups.csv", "references.csv")
 BATCH_SUFFIXES = {".png", ".sp", ".json", ".csv", ".log"}
 OP_NAMES = {"hold_snm": "保持裕量", "read_snm": "读裕量", "write_snm": "写裕量",
@@ -33,12 +35,30 @@ _upstream = None
 
 
 def upstream():
-    global _upstream
+    global _upstream, _backend_revision
     if _upstream is None:
         sys.path.insert(0, str(ROOT))
         from yield_estimation.evaluation import analyze_results, experiment
+        from yield_estimation.evaluation import compatibility
+        for module in (analyze_results, experiment, compatibility):
+            if ROOT not in Path(module.__file__).resolve().parents:
+                raise ValueError("后端模块来自其他目录，请重新启动并核对 OPENYIELD_REPOSITORY。")
+        if not all(callable(value) for value in (analyze_results.analyze, experiment.normalize_experiment, experiment.run_experiment)):
+            raise ValueError("后端缺少可调用的实验或分析入口。")
+        required = {"normalize_experiment", "run_experiment", "analyze", "frozen_suite_v1"}
+        if compatibility.API_VERSION != 1 or not required <= compatibility.CAPABILITIES:
+            raise ValueError("后端缺少工作台所需的软件接口，请使用集成分支，不要退回旧算法。")
+        _backend_revision = source_snapshot()["git_revision"]
         _upstream = (analyze_results, experiment)
     return _upstream
+
+
+def source_snapshot():
+    revision = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
+    status = subprocess.check_output(["git", "-C", str(ROOT), "status", "--porcelain"], text=True)
+    tracked = any(line and not line.startswith("??") for line in status.splitlines())
+    return dict(repository=str(ROOT), git_revision=revision, git_tracked_files_modified=tracked,
+                git_status=status, api_version=1)
 
 
 def now():
@@ -142,6 +162,13 @@ class LocalJobs:
             job["directory"] = str(path.parent)
             if not self.demo and job["status"] in ("running", "cancelling"):
                 job.update(status="interrupted", error="服务重启，未自动接管或重跑实验；请核对原计算进程和已写入文件。")
+                if job.get("kind") == "suite":
+                    for item in job["suite"]:
+                        if item.get("status") == "running":
+                            item["status"] = "interrupted"
+                        elif item.get("status") == "not_started":
+                            item["status"] = "not_started_after_interrupt"
+                    self._suite_status(job)
                 self._save(job)
             analysis_path = path.parent / "analysis/analysis.json"
             if analysis_path.is_file():
@@ -174,12 +201,13 @@ class LocalJobs:
     def _check_runnable(self):
         if self.demo:
             raise ValueError("演示模式只读：不能校验新配置或启动仿真。请使用完整模式连接 OpenYield 环境。")
-        actual = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
-        if actual != REVISION:
-            raise ValueError("仿真核心版本发生变化，请先核对版本，不自动切换算法。")
-        for args in (["diff", "--quiet"], ["diff", "--cached", "--quiet"]):
-            if subprocess.run(["git", "-C", str(ROOT)] + args).returncode:
-                raise ValueError("固定仿真核心有未记录修改，请先核对。")
+        upstream()
+        snapshot = source_snapshot()
+        if snapshot["git_revision"] != _backend_revision:
+            raise ValueError("服务启动后源码版本已改变，请重启工作台以避免内存代码与执行代码不一致。")
+        if snapshot["git_tracked_files_modified"]:
+            raise ValueError("后端有未提交的已跟踪修改，请先提交以冻结本轮源码。")
+        return snapshot
 
     def _references(self, references, seeds):
         if not isinstance(references, list) or not all(isinstance(p, str) and p for p in references):
@@ -206,10 +234,10 @@ class LocalJobs:
             manifest = self._validate_manifest(request["manifest"])
             config = self._find_config(manifest)
             references = list(dict.fromkeys(str((manifest.parent / (r if isinstance(r, str) else r["run"])).resolve())
-                                            for g in read_json(manifest)["groups"] for r in g.get("reference_runs", [])))
+                                            for g in read_json(manifest).get("groups", []) for r in g.get("reference_runs", [])))
             limit = None
         else:
-            self._check_runnable()
+            source = self._check_runnable()
             config = preview(request["config"])["config"]
             references = self._references(request.get("references", []), config["seeds"])
             limit = request.get("time_limit_seconds", 600)
@@ -229,6 +257,7 @@ class LocalJobs:
             job = dict(id=identifier, name=name.strip() or "未命名实验", status="running", offline=offline,
                        source="local" if known_local else "imported", directory=str(folder), created_at=now(), config=config,
                        references=references, time_limit_seconds=limit,
+                       backend_source=source if not offline else None,
                        plan_count=len(config["estimators"]) * len(config["seeds"]) if config else None,
                        manifest=str(manifest) if offline else str(folder / "execution/analysis_manifest.json"))
             self.jobs[identifier] = job
@@ -240,7 +269,7 @@ class LocalJobs:
             return copy.deepcopy(job)
 
     def start_suite(self, request):
-        self._check_runnable()
+        source = self._check_runnable()
         if not isinstance(request, dict):
             raise ValueError("请求须为 JSON 对象。")
         experiments = request.get("experiments")
@@ -274,7 +303,11 @@ class LocalJobs:
             job = dict(id=identifier, name=name.strip() or "多电路套件", status="running", offline=False, kind="suite",
                        source="local", directory=str(folder), created_at=now(), config=None, references=[],
                        time_limit_seconds=limit, plan_count=sum(p["tasks"] for p in plans), suite=plans,
-                       manifest=str(folder / "analysis/analysis_manifest.json"))
+                       backend_source=source, termination_grace_seconds=TERMINATION_GRACE_SECONDS,
+                       manifest=str(folder / "suite_manifest.json"))
+            from yield_estimation.evaluation.suite_analysis import freeze_suite
+            freeze_suite(folder, plans)
+            self._suite_status(job)
             self.jobs[identifier] = job
             self._save(job)
             thread = threading.Thread(target=self._work, args=(job, lambda: self._execute_suite(job)), daemon=True)
@@ -306,6 +339,9 @@ class LocalJobs:
             self._save(job)
 
     def _run_child(self, job, config, references, limit, outdir):
+        snapshot = self._check_runnable()
+        if job.get("backend_source") and snapshot != job["backend_source"]:
+            raise ValueError("实验启动后源码或修改状态发生变化，停止后续电路。")
         folder = Path(job["directory"])
         single = outdir.name == "execution"
         request = folder / ("request.json" if single else outdir.name + ".request.json")
@@ -315,7 +351,8 @@ class LocalJobs:
         for reference in references:
             command.extend(["--reference-run", reference])
         write_json(folder / ("launch.json" if single else "launch_" + outdir.name + ".json"),
-                   dict(command=command, time_limit_seconds=limit))
+                   dict(command=command, time_limit_seconds=limit, backend_source=snapshot,
+                        termination_grace_seconds=TERMINATION_GRACE_SECONDS))
         env = dict(os.environ, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1", CUDA_VISIBLE_DEVICES="")
         env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + env.get("PATH", "")
         with (folder / "launcher.log").open("a", encoding="utf-8") as stream:
@@ -333,7 +370,7 @@ class LocalJobs:
                 code = process.wait(timeout=limit)
             except subprocess.TimeoutExpired:
                 self._terminate(process)
-                code = process.returncode
+                code = 124
         with self.lock:
             self.processes.pop(job["id"], None)
         return code
@@ -350,43 +387,48 @@ class LocalJobs:
         with self.lock:
             job["status"] = "cancelled" if job.get("cancel_requested") else outcome
 
+    def _suite_status(self, job):
+        write_json(Path(job["directory"]) / "suite_status.json",
+                   {f"circuit{p['index']}": {k: p[k] for k in
+                    ("status", "exit_code", "error", "allowed_seconds") if k in p} for p in job["suite"]})
+
     def _execute_suite(self, job):
         folder = Path(job["directory"])
-        analyze_results, _ = upstream()
-        groups, codes = [], []
+        deadline = time.monotonic() + job["time_limit_seconds"]
+        job["termination_grace_seconds"] = TERMINATION_GRACE_SECONDS
+        halted = None
         for plan in job["suite"]:
-            with self.lock:
-                if job.get("cancel_requested"):
-                    break
-            outdir = folder / f"execution_{plan['index']}"
-            code = self._run_child(job, plan["config"], plan["references"], job["time_limit_seconds"], outdir)
-            codes.append(code)
-            plan["exit_code"] = code
-            manifest = outdir / "analysis_manifest.json"
-            plan["manifest"] = str(manifest)
-            if manifest.is_file():
-                result = analyze_results.analyze(manifest, folder / f"analysis_{plan['index']}")
-                for group in result["groups"]:
-                    merged = dict(group)
-                    merged["id"] = f"circuit{plan['index']}-{group['id']}"
-                    merged["name"] = plan["label"]
-                    groups.append(merged)
+            remaining = max(0., deadline - time.monotonic())
+            if job.get("cancel_requested"):
+                halted = "cancelled"
+            elif remaining <= 0:
+                halted = "timeout"
+            if halted:
+                plan["status"] = "not_started_after_" + halted
+            else:
+                plan.update(status="running", allowed_seconds=remaining)
+                self._suite_status(job)
+                self._save(job)
+                try:
+                    code = self._run_child(job, plan["config"], plan["references"], remaining,
+                                           folder / f"execution_{plan['index']}")
+                    if code == 0 and not Path(plan["manifest"]).is_file():
+                        raise ValueError("执行器返回成功但没有实验清单，保留为报错。")
+                    plan["exit_code"] = code
+                    plan["status"] = ("cancelled" if job.get("cancel_requested") else
+                                      "timeout" if code == 124 else "complete" if code == 0 else "error")
+                except Exception as exc:
+                    plan.update(status="error", error=f"{type(exc).__name__}: {exc}")
+                if plan["status"] in ("cancelled", "timeout"):
+                    halted = plan["status"]
+            self._suite_status(job)
             self._save(job)
-        merged = dict(kind="suite_comparison", manifest_path=str(folder / "analysis/analysis_manifest.json"),
-                      ranking_eligible=False, groups=groups)
-        analysis_dir = folder / "analysis"
-        analysis_dir.mkdir(exist_ok=True)
-        write_json(analysis_dir / "analysis.json", merged)
-        write_table(analysis_dir / "runs.csv", [dict(group=g["id"], **r) for g in groups for r in g["runs"]])
-        write_table(analysis_dir / "methods.csv", [dict(group=g["id"], **m) for g in groups for m in g["methods"]])
-        write_table(analysis_dir / "groups.csv", [dict(group=g["id"], **g["checks"]) for g in groups])
-        write_table(analysis_dir / "references.csv", [dict(group=g["id"], **g["reference"]) for g in groups])
-        write_json(analysis_dir / "analysis_manifest.json", dict(schema_version=1, suite=[p["manifest"] for p in job["suite"]]))
+        # Always replay the entire frozen plan, including circuits never launched.
+        self._analyze(job, Path(job["manifest"]))
         with self.lock:
-            job["analysis"] = merged
-            job["exit_code"] = codes
-            job["status"] = ("cancelled" if job.get("cancel_requested")
-                             else "complete" if all(c == 0 for c in codes) else "incomplete")
+            job["exit_code"] = [p.get("exit_code") for p in job["suite"]]
+            job["status"] = ("cancelled" if job.get("cancel_requested") else "timeout" if halted == "timeout"
+                             else "complete" if all(p["status"] == "complete" for p in job["suite"]) else "incomplete")
 
     @staticmethod
     def _signal(process, value):
@@ -399,7 +441,7 @@ class LocalJobs:
     def _terminate(self, process):
         self._signal(process, signal.SIGTERM)
         try:
-            process.wait(timeout=8)
+            process.wait(timeout=TERMINATION_GRACE_SECONDS)
         except subprocess.TimeoutExpired:
             self._signal(process, signal.SIGKILL)
             process.wait()
@@ -423,7 +465,7 @@ class LocalJobs:
         for identifier in ids:
             self.cancel(identifier)
         for thread in list(self.threads.values()):
-            thread.join(timeout=20)
+            thread.join(timeout=TERMINATION_GRACE_SECONDS + 5)
 
     def listing(self):
         with self.lock:
@@ -443,7 +485,9 @@ class LocalJobs:
             total = 0
             for path in trials:
                 with path.open(encoding="utf-8", newline="") as stream:
-                    total += sum(1 for _ in csv.DictReader(stream))
+                    total += sum(1 for row in csv.DictReader(stream)
+                                 if row.get("status", row.get("state")) not in
+                                 ("not_started", "running", "not_started_after_experiment_timeout", "not_started_after_interrupt"))
             return total
         if job.get("analysis"):
             return sum(r["status"] != "missing_summary" for g in job["analysis"]["groups"] for r in g["runs"])
@@ -470,6 +514,10 @@ class LocalJobs:
         if not manifest.is_file() or manifest.stat().st_size > 1000000:
             raise ValueError("分析清单不存在或超过 1 MB。")
         data = read_json(manifest)
+        if isinstance(data, dict) and data.get("kind") == "openyield_suite_v1":
+            from yield_estimation.evaluation.suite_analysis import load_suite
+            load_suite(manifest, lambda p: contained(p, self.allowed_roots))
+            return manifest
         if not isinstance(data, dict) or not isinstance(data.get("groups"), list):
             raise ValueError("需要包含 groups 的上游分析清单，不是实验配置文件。")
         base = manifest.parent
@@ -676,7 +724,7 @@ def make_handler(jobs, token):
             query = parse_qs(url.query)
             try:
                 if url.path == "/api/health":
-                    self.send_data(dict(app="openyield-fusion", status="ok", revision=REVISION, demo=jobs.demo))
+                    self.send_data(dict(app="openyield-fusion", status="ok", revision=None if jobs.demo else source_snapshot()["git_revision"], demo=jobs.demo))
                 elif url.path == "/api/context":
                     if jobs.demo:
                         context = read_json(jobs.demo_root / "context.json")
@@ -684,8 +732,8 @@ def make_handler(jobs, token):
                         self.send_data(context)
                     else:
                         original, choices = presets()
-                        reference = ROOT / "outputs/bench_reference_hold_20261118/mc-reference/seed_2026111801/mc"
-                        self.send_data(dict(token=token, template=original, presets=choices, revision=REVISION, demo=False,
+                        reference = Path(os.environ.get("OPENYIELD_REFERENCE", ROOT / "outputs/independent-reference"))
+                        self.send_data(dict(token=token, template=original, presets=choices, revision=source_snapshot()["git_revision"], backend_source=source_snapshot(), demo=False,
                                             reference=str(reference) if (reference / "run_summary.json").is_file() else "",
                                             output_root=str(jobs.output_root), jobs=jobs.listing(), catalog=jobs.catalog()))
                 elif url.path == "/api/jobs":
@@ -784,7 +832,7 @@ def main():
     if args.demo:
         jobs = LocalJobs(None, demo_root=args.demo)
     else:
-        jobs = LocalJobs(args.output_root or ROOT / "outputs/fusion_web_20261118")
+        jobs = LocalJobs(args.output_root or ROOT / "outputs/fusion_workbench")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(jobs, secrets.token_urlsafe(32)))
     mode = "demo" if jobs.demo else "full"
     print(f"OpenYield Fusion ({mode}) http://127.0.0.1:{server.server_port}", flush=True)

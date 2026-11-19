@@ -13,3 +13,9 @@ This repository adds only the web workbench (server.py, public/), multi-circuit
 suite orchestration, evidence/dataset endpoints, demo bundling (tools/), tests
 and documentation. It does not modify upstream algorithms, device models or
 failure criteria.
+
+Integration note: the Fusion branch historically used 312f137. The integrated
+workbench uses the current checkout through evaluation API version 1. Shared
+suite replay and execution orchestration have been extended; algorithm strategies,
+device models and failure criteria are preserved. Existing demo records retain
+their original revisions. See README.md and INTEGRATION_REPORT.md.

@@ -417,9 +417,13 @@ def analyze(manifest_path, output):
     manifest_path, output = Path(manifest_path).resolve(), Path(output).resolve()
     raw = manifest_path.read_bytes()
     manifest = json.loads(raw)
-    validate_manifest(manifest, manifest_path.parent, output)
-    planned = load_planned_trials(manifest, manifest_path.parent)
-    groups = [analyze_group(group, manifest_path.parent, planned) for group in manifest['groups']]
+    if isinstance(manifest, dict) and manifest.get('kind') == 'openyield_suite_v1':
+        from .suite_analysis import suite_groups
+        groups = suite_groups(manifest_path, output)
+    else:
+        validate_manifest(manifest, manifest_path.parent, output)
+        planned = load_planned_trials(manifest, manifest_path.parent)
+        groups = [analyze_group(group, manifest_path.parent, planned) for group in manifest['groups']]
     result = dict(kind='offline_comparison', manifest_path=str(manifest_path),
                   manifest_sha256=hashlib.sha256(raw).hexdigest(),
                   ranking_eligible=False, groups=groups)

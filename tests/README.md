@@ -62,3 +62,8 @@ and preservation of all planned tasks in offline analysis. Neither calls Xyce.
 CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PWD/tests:$PWD" \
   python -m unittest test_sphere_connection test_execution_limits -v
 ```
+
+Fusion integration regression commands and scope are documented in
+[the workbench guide](../workbench/fusion/README.md). Its unittest fixtures are
+generated in temporary directories; suite deadlines use fake clocks/executors.
+No private output tree, Xyce, or GPU is required.

@@ -14,16 +14,20 @@ import server
 sys.path.insert(0, str(server.ROOT))
 from yield_estimation.evaluation.analysis_plan import analysis_manifest
 
-READ = server.ROOT / 'outputs/bench_web_job-b8a32df2-65ca-4eb4-9f0a-ab95102d561e/analysis_manifest.json'
-HOLD = server.ROOT / 'outputs/bench_web_job-12106599-0a43-4e37-9caf-16ebe96d0b7a/analysis_manifest.json'
-ARTIFACTS = Path(__file__).resolve().parents[1] / 'artifacts'
+from fixtures import fixture
 
 
 class FusionTests(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(dir=ARTIFACTS)
+        self.tmp = tempfile.TemporaryDirectory()
         self.folder = Path(self.tmp.name)
         self.jobs = server.LocalJobs(self.folder)
+        self.read = fixture(self.folder, 'read')
+        self.hold = fixture(self.folder, 'hold_snm', reference=True)
+        # Executor tests below never launch a circuit; provenance is tested separately.
+        runnable = patch.object(self.jobs, '_check_runnable', return_value={})
+        runnable.start()
+        self.addCleanup(runnable.stop)
 
     def tearDown(self):
         self.jobs.close()
@@ -51,14 +55,14 @@ class FusionTests(unittest.TestCase):
     def test_reference_seed_overlap_rejected_before_run(self):
         config = server.presets()[1][1]['config']
         config['seeds'] = [2026111801]
-        reference = server.ROOT / 'outputs/bench_reference_hold_20261118/mc-reference/seed_2026111801/mc'
+        reference = self.hold.parent / 'reference'
         with self.assertRaisesRegex(ValueError, '参考种子不能'):
             self.jobs.start(dict(config=config, references=[str(reference)]))
         self.assertEqual(self.jobs.jobs, {})
 
     def test_read_evidence_matches_original(self):
-        before = hashlib.sha256(READ.read_bytes()).hexdigest()
-        job = self.load(READ)
+        before = hashlib.sha256(self.read.read_bytes()).hexdigest()
+        job = self.load(self.read)
         row = job['analysis']['groups'][0]['runs'][0]
         self.assertEqual(row['cost']['xyce_returned'], 4)
         self.assertIsNone(row['absolute_error'])
@@ -67,14 +71,14 @@ class FusionTests(unittest.TestCase):
         self.assertAlmostEqual(float(evidence['rows'][0]['read_delay_s']) * 1e9, .7131475, places=7)
         for kind in ('summary', 'config', 'report', 'log'):
             self.assertTrue(self.jobs.evidence(job['id'], 0, 0, kind)['available'], kind)
-        self.assertEqual(before, hashlib.sha256(READ.read_bytes()).hexdigest())
+        self.assertEqual(before, hashlib.sha256(self.read.read_bytes()).hexdigest())
         with self.assertRaises(ValueError):
             self.jobs.evidence(job['id'], -1, 0, 'summary')
         with self.assertRaises(ValueError):
             self.jobs.asset(job['id'], 0, 0, '../../job.json')
 
     def test_hold_reference_and_weight_warning(self):
-        job = self.load(HOLD)
+        job = self.load(self.hold)
         group = job['analysis']['groups'][0]
         self.assertEqual(group['reference']['samples'], 128)
         self.assertEqual(group['reference']['failure_count'], 10)
@@ -120,7 +124,7 @@ class FusionTests(unittest.TestCase):
             self.jobs._validate_manifest(source / 'analysis_manifest.json')
 
     def test_history_restores_without_reexecution(self):
-        job = self.load(READ)
+        job = self.load(self.read)
         restored = server.LocalJobs(self.folder)
         self.assertEqual(restored.snapshot(job['id'])['analysis'], job['analysis'])
         self.assertEqual(restored.listing()[0]['status'], 'complete')
@@ -194,7 +198,7 @@ class FusionTests(unittest.TestCase):
             httpd.shutdown(); httpd.server_close(); worker.join()
 
     def test_circuit_evidence_and_dataset(self):
-        job = self.load(HOLD)
+        job = self.load(self.hold)
         circuit = self.jobs.evidence(job['id'], 0, 0, 'circuit')
         self.assertTrue(circuit['available'])
         first = circuit['content']['batches'][0]
@@ -209,7 +213,7 @@ class FusionTests(unittest.TestCase):
         self.assertEqual(len(lines) - 1, 12)
 
     def test_demo_bundle_is_readonly_and_selfcontained(self):
-        job = self.load(HOLD)
+        job = self.load(self.hold)
         bundle = self.folder / 'demo'
         run_dir = bundle / job['id'] / 'runs' / '0_0'
         (run_dir / 'batches').mkdir(parents=True)
@@ -229,7 +233,7 @@ class FusionTests(unittest.TestCase):
         server.write_json(bundle / job['id'] / 'job.json', record)
         (bundle / job['id'] / 'analysis').mkdir()
         server.write_json(bundle / job['id'] / 'analysis' / 'analysis.json', job['analysis'])
-        server.write_json(bundle / 'context.json', dict(template={}, presets=[], revision=server.REVISION))
+        server.write_json(bundle / 'context.json', dict(template={}, presets=[], revision='synthetic-fixture'))
         demo = server.LocalJobs(None, demo_root=bundle)
         self.assertEqual(demo.listing()[0]['finished_tasks'], 1)
         self.assertEqual(demo.evidence(job['id'], 0, 0, 'samples')['total'], 12)
@@ -238,7 +242,7 @@ class FusionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '演示模式只读'):
             demo.start({'config': server.presets()[1][1]['config']})
         with self.assertRaisesRegex(ValueError, '演示模式只读'):
-            demo.start({'manifest': str(HOLD)}, offline=True)
+            demo.start({'manifest': str(self.hold)}, offline=True)
 
     def test_loopback_and_request_protection(self):
         httpd = server.ThreadingHTTPServer(('127.0.0.1', 0), server.make_handler(self.jobs, 'test-token'))
@@ -274,8 +278,4 @@ class FusionTests(unittest.TestCase):
 
 if __name__ == '__main__':
     suite = unittest.main(verbosity=2, exit=False)
-    server.write_json(ARTIFACTS / 'server-checks.json', dict(
-        checked_at=server.now(), tests=suite.result.testsRun, passed=suite.result.wasSuccessful(),
-        failures=[str(test) for test, _ in suite.result.failures],
-        errors=[str(test) for test, _ in suite.result.errors]))
     sys.exit(0 if suite.result.wasSuccessful() else 1)

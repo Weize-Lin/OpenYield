@@ -1,69 +1,131 @@
-# OpenYield Fusion · 良率评测工作台
+# OpenYield Fusion 良率评测工作台
 
-一个把 OpenYield 的 SRAM 良率估计算法接成“可提交、可比较、可追溯”的评测工作台。
-保留林同学协作分支的 Python 实验/分析核心作为权威，重组织网页为研究工作台，
-并补齐老师原始任务中要求的跨电路自动评测、电路证据查阅与建模数据留存。
+Fusion 把现有 OpenYield 实验和分析入口接成跨电路工作台。算法、工艺与失效判定仍由
+`yield_estimation/evaluation` 执行；网页负责配置、套件编排、证据查看和下载。
+本次整合保留双方 Git 历史，没有把算法退回 Fusion 最初使用的旧版本。
 
-> English abstract: A local-first evaluation workbench for OpenYield SRAM yield
-> estimators. It wraps the upstream `evaluation.experiment` / `analyze_results`
-> entry points (commit `312f137`) with a web UI for multi-circuit suites,
-> method × circuit matrices, per-run evidence (samples / config / report / log /
-> waveform / netlist), and parameter→measurement dataset export. Ships a
-> zero-dependency read-only demo mode and a static GitHub-Pages site built from
-> real recorded experiments.
+## 在 WSL 启动
 
-## 三种运行形态
-
-| 形态 | 命令 | 依赖 | 用途 |
-|---|---|---|---|
-| 完整模式 | `Start-OpenYield-Fusion.cmd`（Windows）或 `python server.py` | OpenYield 副本 + Conda 环境 + Xyce 7.4 | 校验、提交真实仿真与多电路套件、分析、证据 |
-| 演示模式 | `python server.py --demo demo_data --port 8767` | 仅 Python 标准库 | 只读浏览随仓库分发的真实证据包 |
-| 静态站点 | 打开 `demo_site/index.html`，或部署到 GitHub Pages | 无 | 发给老师/同学直接看的只读演示 |
-
-完整模式默认端口 8766；演示示例用 8767。原工作台（3417）与林同学原页面（8765）不受影响。
-
-### 完整模式环境
-
-- `OPENYIELD_REPOSITORY`：OpenYield  checkout 路径（默认 `~/openyield-web-312f137`，固定提交 `312f137e9ab960f1178f4991d9bf4675575e2f01`）。
-- Python 需能 import `yield_estimation.evaluation`（numpy / PySpice / Xyce 等，见上游 `environment.yml`）。
-- 运行前会核对 git 版本与未提交修改；参考种子必须与实验种子独立。
-
-### 重新生成演示包 / 静态站点
+在仓库根目录，先激活已经安装好依赖的 OpenYield 环境：
 
 ```bash
-python tools/build_demo.py --job <已完成的任务ID>
+conda activate openyield
+bash workbench/fusion/start.sh
 ```
 
-从真实任务输出打包 `demo_data/` 与 `demo_site/`。演示包是精简子集：每轮保留
-summary / samples / config / report / log / 建模数据集，以及**首个批次**的波形图、网表、扰动与统计文件。
+打开 **http://127.0.0.1:8766**。启动页面不会自动仿真；点击运行才提交任务。
+Ctrl+C 停止服务。默认结果在本仓库 `outputs/fusion_workbench/`。
+现有后端本地页面和命令行入口继续保留。
 
-## 仓库结构
+`start.sh` 从脚本所在位置定位仓库，不依赖用户名和当前目录。可以显式指定：
 
-```
-server.py            服务端（完整 + 演示模式；套件、证据、数据集接口）
-public/              前端（index.html / app.js / style.css），同一前端支持静态演示数据
-tools/build_demo.py  演示包与静态站点生成器
-tests/               后端 unittest 与 Playwright 浏览器回归
-demo_data/           只读演示证据包（真实实验精简子集）
-demo_site/           静态只读站点（可直接放 GitHub Pages）
-docs/ROADMAP.md      老师原始目标 → 当前状态 → 下一步
-操作手册.html / .pdf  面向零基础用户的图文手册
-MILESTONES.md        关键里程碑与验收证据日志
+```bash
+OPENYIELD_PYTHON=/path/to/env/bin/python \
+OPENYIELD_REPOSITORY=/path/to/integrated-checkout \
+  bash workbench/fusion/start.sh --port 8766 --output-root /path/to/results
 ```
 
-## 已验证（2026-11-18）
+仓库必须包含本次整合的软件接口；外接旧版会报错，不能自动降级。
+完整模式需要正常的 OpenYield Python 依赖，真实运行还需要 Xyce，见根目录环境说明。
+依赖安装、工况科学性、算法论文一致性，不由页面校验通过来证明。
 
-- 后端 13 项 unittest：配置预览、证据一致性、独立参考、冻结计划缺失轮、路径/符号链接限制、
-  历史恢复、分页、参考种子重合拒绝、接口保护、受控取消、套件校验与上限、电路证据/数据集、只读演示包。
-- 浏览器 11 组回归：真实历史、五类证据+电路证据、下载、矩阵下钻、筛选、配置保留、异步校验、
-  小屏、六轮汇总、套件按电路分列、静态演示只读。
-- 真实仿真：六轮 MNIS 对照（72 条返回）+ 双电路套件（7 轮、76 条返回）。详见 `MILESTONES.md` F5/F8 与 `artifacts/`。
+Windows 也可以在 PowerShell 启动，路径使用自己的 WSL Linux 路径：
 
-**边界**：小样本只验证流程与记账，不构成算法性能结论；波形/网表供人工核对，不做自动物理验收；
-TabPFN 尚未接入（见 ROADMAP）。
+```powershell
+.\workbench\fusion\start.ps1 -Distribution Ubuntu-22.04 `
+  -Repository /home/shammy/projects/OpenYield-integrate-fusion `
+  -Python /home/shammy/miniconda3/envs/openyield/bin/python -NoBrowser
+```
 
-## 许可与归属
+这里的用户路径只是本机示例，不是程序默认值。发行版留空使用 WSL 默认发行版。
+`Start-OpenYield-Fusion.cmd` 继续调用这个可配置脚本；没有隐藏的私人依赖目录。
+服务器在当前窗口运行；也可用 `stop.ps1 -Port 8766` 请求停止。
 
-Apache-2.0（见 `LICENSE`）。实验/分析核心来自 [OpenYield](https://github.com/ShenShan123/OpenYield)
-及林同学协作分支 [Weize-Lin/OpenYield](https://github.com/Weize-Lin/OpenYield)（固定提交 `312f137`），
-本仓库仅新增网页工作台、套件编排、证据/数据集接口与演示打包，不修改上游算法。见 `NOTICE`。
+## 只看已有证据
+
+不需要 NumPy、Conda 或 Xyce：
+
+```bash
+python3 workbench/fusion/server.py --demo workbench/fusion/demo_data --port 8767
+```
+
+打开 **http://127.0.0.1:8767**。也可以直接打开 `demo_site/index.html` 静态演示。
+随仓库的演示包保留原始数据、旧源码版本和告警，是历史案例，不能当成当前源码重新运行的结果。
+`MILESTONES.md`、原图文手册和 PDF 同样保留为历史说明；当前启动与复算方式以本页为准。
+
+## 正常运行时怎样核对来源
+
+不再把后端钉死在某个提交号。工作台检查共享 API 版本和入口，并确保实际导入的模块来自配置仓库。
+启动真实任务要求已跟踪源码干净；服务启动后改变提交，需要重启，避免内存代码和子进程代码不同。
+未跟踪文件不自动删除，其状态会记录。
+
+每个新任务的 `job.json` 和 `launch*.json` 保存真实提交、修改状态、仓库路径和软件接口版本。
+后端继续保存每次实验的源码、器件模型哈希、Xyce 版本和可执行文件哈希；共享分析器继续检查这些来源。
+软件接口兼容不代表算法科学有效，也不会把历史演示改标为新版本。
+
+## 多电路套件的限时与复算
+
+30 秒表示整轮子进程执行时间上限：第一个电路花 20 秒，第二个最多只剩 10 秒。
+取消、超时和启动错误都保留全部计划。终止宽限最多 **30 秒**，用于清理进程；最终离线分析另计。
+不承诺“含分析的总墙钟时间”严格等于运行限时。
+
+开始前会写入：
+
+- `suite_manifest.json`：完整电路列表、每个冻结清单的 SHA-256、实际输出位置。
+- `plans/<编号>/`：冻结配置、单电路计划和参考摘要哈希。
+- `suite_status.json`：各电路已完成、报错、超时、取消或未启动状态。
+
+查看 `analysis/runs.csv` 的每条原始估计、状态、成本、告警和来源；
+`methods.csv` 展示各电路内按策略与预算分组的汇总；`groups.csv` 核对条件；
+`references.csv` 展示参考及区间。跨电路按列展示，不把不同电路混成一个准确率或权威排名。
+没有估计的运行仍计入分母；低权重、超 1 的差结果不会因不好看而被删除。
+
+保存后用同一个共享分析入口重新生成表格，输出必须是新目录：
+
+```bash
+python -m yield_estimation.evaluation.analyze_results \
+  --manifest outputs/fusion_workbench/<任务ID>/suite_manifest.json \
+  --output-dir outputs/reanalysis-<新名字>
+```
+
+网页“导入已有分析清单”也接受这个套件清单。旧的单电路 `groups` 清单继续兼容。
+Fusion 旧版只含 `suite: [路径]` 的不完整清单不自动升级：它没有冻结的未启动计划，不能补造历史证据。
+
+## 公开离线检查
+
+在根目录、已激活依赖环境执行，不调用 Xyce 或 GPU：
+
+```bash
+CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PWD/tests:$PWD" \
+python -m unittest test_evaluation_weight_contract test_research_experiment \
+  test_estimation_contract test_adaptive_production_contract test_result_analysis \
+  test_local_web test_acs_initialization_study test_sphere_connection test_execution_limits -v
+
+CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH="$PWD" \
+python -m unittest discover -s workbench/fusion/tests -p 'test_*.py' -v
+
+node tests/test_local_form.cjs
+```
+
+Fusion 的固定数据在临时目录生成，明确标为模拟数据；不需要任何人的私人 `outputs/`。
+限时逻辑用替代执行器和模拟时钟检查；受控取消使用可立即终止的 Python 子进程，没有真实电路等待。
+可选浏览器检查先安装 `npm --prefix workbench/fusion install`、`npx playwright install chromium`，
+启动上面的只读演示，再执行 `node workbench/fusion/tests/browser.mjs`。
+已有浏览器可通过 `OPENYIELD_BROWSER_EXECUTABLE` 指定；测试地址用 `OPENYIELD_TEST_URL` 指定。
+浏览器检查只允许连接演示模式，避免意外启动仿真。
+
+## 导出新的只读演示
+
+```bash
+python workbench/fusion/tools/build_demo.py --job <任务ID> \
+  --destination outputs/fusion-export-<新名字>
+```
+
+导出新目录，存在则拒绝，不覆盖仓库公开演示。每轮保留首个批次的电路附件，
+样本、配置、报告、日志和参数测量表按实际可用证据导出。
+
+## 归属与范围
+
+OpenYield 原项目及双方协作贡献继续按 Apache-2.0 保留，见 `NOTICE`、Git 历史及原有说明。
+整合没有改变 MC/MNIS/AIS/ACS/HSCS 的算法策略、模型或门限，没有接入 TabPFN/GPU、代码上传或服务器部署。
+离线接入检查通过也不等于已完成新工作台的真实 Xyce 验收，更不等于算法精度认证。

@@ -1,7 +1,7 @@
 """Build a read-only demo evidence bundle and a static GitHub-Pages site.
 
 Run inside the OpenYield environment (full mode), e.g.:
-  python tools/build_demo.py --job <suite-job-id>
+  python workbench/fusion/tools/build_demo.py --job <suite-job-id> --destination outputs/new-export
 Outputs: demo_data/ (for `server.py --demo`) and demo_site/ (static, no server).
 The bundle is a deliberately small subset: per run it keeps the summary, samples,
 config, report, log, a precomputed modelling dataset, and the FIRST batch's
@@ -30,17 +30,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--job", required=True)
     parser.add_argument("--output-root", type=Path, default=None)
+    parser.add_argument("--destination", required=True, type=Path,
+                        help="New export directory; existing evidence is never overwritten")
     args = parser.parse_args()
-    jobs = server.LocalJobs(args.output_root or server.ROOT / "outputs/fusion_web_20261118")
+    jobs = server.LocalJobs(args.output_root or server.ROOT / "outputs/fusion_workbench")
     job = jobs.snapshot(args.job)
     if not job.get("analysis"):
         raise SystemExit("该任务尚无分析结果，不能打包演示。")
-    demo_root = HERE / "demo_data"
-    site = HERE / "demo_site"
+    destination = args.destination.resolve()
+    destination.mkdir(parents=True, exist_ok=False)
+    demo_root = destination / "demo_data"
+    site = destination / "demo_site"
     for directory in (demo_root, site):
-        if directory.exists():
-            shutil.rmtree(directory)
-        directory.mkdir(parents=True)
+        directory.mkdir()
     job_dir = demo_root / job["id"]
     (job_dir / "analysis").mkdir(parents=True)
     shutil.copy(Path(job["directory"]) / "analysis" / "analysis.json", job_dir / "analysis" / "analysis.json")
@@ -102,7 +104,8 @@ def main():
     record.update(offline=True, demo_evidence=mapping, analysis=job["analysis"])
     server.write_json(job_dir / "job.json", record)
     original, choices = server.presets()
-    context = dict(template=original, presets=choices, revision=server.REVISION, reference="", output_root="",
+    context = dict(template=original, presets=choices, revision=(job.get("backend_source") or {}).get("git_revision"),
+                   export_source=server.source_snapshot(), reference="", output_root="",
                    demo_note="演示包为真实实验的精简证据子集：每轮保留首个批次的电路文件；样本、配置、报告、日志与建模数据集为全量。")
     server.write_json(demo_root / "context.json", context)
     demo_jobs = server.LocalJobs(None, demo_root=demo_root)
