@@ -1,0 +1,123 @@
+{
+  "source_revision": "80f3df7ff83d2c8e7eae751ed10d5111d485ab1f",
+  "job_id": "641c27696f8c432399d4635ccfeca7c6",
+  "status": "complete",
+  "source_clean": true,
+  "submitted_suites": 1,
+  "circuit_tasks": 2,
+  "submitted": 8,
+  "returned": 8,
+  "numerical_retries": 0,
+  "solver_process_attempts": 3,
+  "solver_parameter_row_attempts": 8,
+  "request_sha256": "a6ec3f46b5c12f848ea51d83818b99a70d26391df88cab98bde045ecbabce58d",
+  "time_limit_seconds": 120,
+  "termination_grace_seconds": 30,
+  "job_wall_seconds_including_planning_analysis": 107.821982,
+  "serial_solver_intervals": [
+    {
+      "pid": 1708,
+      "start": "11:25:06.128461",
+      "end": "11:25:14.174645",
+      "trace": "1708  11:25:06.128461 execve(\"/home/shammy/miniconda3/envs/openyield/bin/Xyce\", [\"Xyce\", \"/home/shammy/projects/OpenYield-\"..., \"-o\", \"/home/shammy/projects/OpenYield-\"...], 0x5f205f2eddd0 /* 32 vars */) = 0"
+    },
+    {
+      "pid": 1771,
+      "start": "11:25:26.752389",
+      "end": "11:26:20.221208",
+      "trace": "1771  11:25:26.752389 execve(\"/home/shammy/miniconda3/envs/openyield/bin/Xyce\", [\"Xyce\", \"/home/shammy/projects/OpenYield-\"..., \"-o\", \"/home/shammy/projects/OpenYield-\"...], 0x5e851a4fbf20 /* 32 vars */) = 0"
+    },
+    {
+      "pid": 1903,
+      "start": "11:26:21.765065",
+      "end": "11:26:40.915624",
+      "trace": "1903  11:26:21.765065 execve(\"/home/shammy/miniconda3/envs/openyield/bin/Xyce\", [\"Xyce\", \"/home/shammy/projects/OpenYield-\"..., \"-o\", \"/home/shammy/projects/OpenYield-\"...], 0x5e851a4fbf20 /* 32 vars */) = 0"
+    }
+  ],
+  "circuits": [
+    {
+      "circuit": 0,
+      "operation": "hold_snm",
+      "array": [
+        1,
+        1,
+        false
+      ],
+      "seed": 9101,
+      "status": "complete",
+      "submitted": 4,
+      "returned": 4,
+      "unclassified": 0,
+      "failure_count": 0,
+      "estimate": 0.0,
+      "interval": [
+        0.0,
+        0.4898908364545972
+      ],
+      "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "allowed_seconds": 119.99999861200013,
+      "batches": [
+        {
+          "batch": "batch_0000",
+          "rows": 4,
+          "attempts": 1,
+          "samples_sha256": "18822b02172e392371a5973d5d2c239bd343b21497a6f9eb878ada2c70772d38"
+        }
+      ]
+    },
+    {
+      "circuit": 1,
+      "operation": "read",
+      "array": [
+        3,
+        2,
+        false
+      ],
+      "seed": 2,
+      "status": "complete",
+      "submitted": 4,
+      "returned": 4,
+      "unclassified": 0,
+      "failure_count": 0,
+      "estimate": 0.0,
+      "interval": [
+        0.0,
+        0.4898908364545972
+      ],
+      "model_sha256": "40fbaa38ec61aa2b3917754dfbc12ff34be47208940359acbf4a55a10ead7cc0",
+      "solver_sha256": "13971579e5902562364d9b5bb53ad23ab19990907b44fe93a887d71cd9b7480e",
+      "solver_version": "Xyce DEVELOPMENT-202312200606-(Public_Release-7.4.0-36-gb7bb12d8)-opensource",
+      "allowed_seconds": 99.08189707800011,
+      "batches": [
+        {
+          "batch": "batch_0000",
+          "rows": 3,
+          "attempts": 1,
+          "samples_sha256": "5dbf445974c81f9f9fc0654e5f392bc9f6140a5555f0aa509d407b1132efaed0"
+        },
+        {
+          "batch": "batch_0003",
+          "rows": 1,
+          "attempts": 1,
+          "samples_sha256": "f9b853d64c793656de36581f75778e9645cbf99359f394bf6a3ebdc86f03e48b"
+        }
+      ]
+    }
+  ],
+  "download_sha256": {
+    "runs.csv": "c3196867586c9e545e9ae3efc06bcf98c1ac37add290cc1463b83caf8fa3bad1",
+    "methods.csv": "946adca2e9cd2379504e87d4ed2d688a6c5e1a5f6d1e4e5649a57fa708fd5e8a",
+    "groups.csv": "12a7e27ab41d50da6465e469bd4c4749100138e8fa098929b5e512d1ba1e542c",
+    "references.csv": "d23cf2c8be8066c66b049b89671d2ea586045aaf2bc39bc89721e6e3944e606d"
+  },
+  "reanalysis_equal": true,
+  "new_reference_runs": 0,
+  "browser_check": {
+    "submissions": 1,
+    "page_errors": [],
+    "status": "complete",
+    "source": "80f3df7ff83d2c8e7eae751ed10d5111d485ab1f"
+  }
+}
