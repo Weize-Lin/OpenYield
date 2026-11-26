@@ -67,3 +67,9 @@ Fusion integration regression commands and scope are documented in
 [the workbench guide](../workbench/fusion/README.md). Its unittest fixtures are
 generated in temporary directories; suite deadlines use fake clocks/executors.
 No private output tree, Xyce, or GPU is required.
+
+## 保存样本的独立核验与前向记录
+
+公开CPU回归不需要Xyce或私人实验目录，执行命令和覆盖边界见[样本核验指南](../workbench/fusion/SAMPLE_VERIFICATION.md)。
+包括原合格要求来源、一致/冲突/缺失、必要波形/多样本对应、原标签保留、求解尝试记录、新任务自动衔接、取消/中断和路径限制。
+完整原始数据不作为测试依赖；仓库只含派生软件夹具。测试通过不等于电路精度、求解精度或通用良率算法已验证。

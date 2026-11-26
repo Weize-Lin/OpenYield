@@ -1,6 +1,6 @@
 # OpenYield V2.2.6
 
-**科研工作台入口：** 请选择本协作仓库的 `codex/benchmark-oct01` 开发分支，按 [Fusion 启动与案例指南](workbench/fusion/README.md) 使用。PR #1 已通过普通 merge 合入，合并提交 `2b0c403` 保留双方历史；`main` 未改动。当前已有两个 MC 电路任务的真实闭环证据，适用范围见 [交付清单](workbench/fusion/REVIEW_CHECKLIST.md)。历史公开案例继续保留固定版本。
+**科研工作台入口：** 现有日常开发分支是 `codex/benchmark-oct01`，见 [Fusion指南](workbench/fusion/README.md)。本地候选分支 `codex/deliver-sample-verification` 增加了[只读样本核验首版](workbench/fusion/SAMPLE_VERIFICATION.md)，当前尚未推送/合入；需在包含该候选的工作目录使用。批准合入后仍使用原日常分支与启动方式。原公开案例固定版本不变。
 
 OpenYield builds transistor-level 6T and 10T SRAM netlists, runs DC and transient analyses with Xyce, and provides circuit-backed and offline sizing optimizers. The compiler models distributed RC wiring and samples independent local `vth0`, `u0`, and `voff` variation for each retained MOS by default.
 

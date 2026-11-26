@@ -25,6 +25,7 @@ from sram_compiler.per_device_mc.netlist import (
 from sram_compiler.version import VERSION
 from yield_estimation.model_lib.MC import MC
 from yield_estimation.evaluation.solver_provenance import xyce_fingerprint
+from yield_estimation.evaluation.batch_evidence import write_batch_evidence
 from yield_estimation.evaluation.outcomes import (
     MeasurementRule, threshold_seconds, UNCLASSIFIED,
 )
@@ -301,6 +302,7 @@ class RecordedAccessTestbench:
 
     def __init__(self, testbench, output, config):
         self.testbench = testbench
+        self.record_config = dict(config)
         self.options = evaluation_circuit_options(config)
         self.operation = self.options["operation"]
         self.rule = MeasurementRule(self.operation, config)
@@ -314,6 +316,14 @@ class RecordedAccessTestbench:
         self.functional_failures = 0
         self.timing_failures = 0
         self.margin_failures = 0
+
+    def record_evidence(self, batch, first, count, state, rows=None, error=None, returned=None):
+        requirement=dict(self.rule.metadata(),configured_threshold_key=self.rule.threshold_key,
+                         configured_threshold_value=self.rule.threshold_value,
+                         comparison_operator=self.rule.operator,
+                         **({"threshold_v":self.rule.threshold} if self.rule.is_snm else {"threshold_s":self.rule.threshold}))
+        return write_batch_evidence(batch,self.record_config,self.options,requirement,first,count,
+                                    state=state,rows=rows,error=error,returned=returned)
 
     def write_rows(self, rows):
         with (self.output / "samples.csv").open("a", encoding="utf-8", newline="") as stream:
@@ -341,6 +351,7 @@ class RecordedAccessTestbench:
         self.testbench.sim_path = str(batch)
         self.submitted += mc_runs
         print(f"MC: submitted {self.submitted}/{self.budget} samples", flush=True)
+        self.record_evidence(batch,first,mc_runs,"submitted")
         try:
             retain = {}
             if not self.rule.is_snm:
@@ -356,9 +367,12 @@ class RecordedAccessTestbench:
                 raise RuntimeError(f"Unexpected {operation} measurements or sample count")
             if self.rule.is_snm and not np.isfinite(values).all():
                 raise RuntimeError(f"Unresolved {operation} margin; inspect the batch debug CSV and raw sweep")
-        except (Exception, KeyboardInterrupt):
-            self.write_rows((first + i + 1, batch.name, i, "", UNCLASSIFIED)
-                            for i in range(mc_runs))
+        except (Exception, KeyboardInterrupt) as exc:
+            failed_rows=[(first+i+1,batch.name,i,"",UNCLASSIFIED) for i in range(mc_runs)]
+            self.write_rows(failed_rows)
+            self.record_evidence(batch,first,mc_runs,
+                                 "interrupted" if isinstance(exc,KeyboardInterrupt) else "call_failed",
+                                 rows=failed_rows,error=exc,returned=0)
             raise
 
         rows = []
@@ -372,6 +386,7 @@ class RecordedAccessTestbench:
                          "" if np.isnan(value) else float(value), outcome))
         self.returned += len(values)
         self.write_rows(rows)
+        self.record_evidence(batch,first,mc_runs,"return_prepared",rows=rows,returned=len(values))
         return (values, None, None, None) if self.rule.is_snm else result
 
 
