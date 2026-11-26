@@ -106,6 +106,8 @@ python workbench/fusion/tools/register_saved_read_task.py \
 export PYTHONPATH="$PWD"
 python -m unittest discover -s workbench/fusion/tests -p 'test_*.py' -v
 python -m unittest discover -s tools -p 'test_verify_saved_6t_read.py' -v
+python -m unittest discover -s tests -p 'test_forward_read_evidence.py' -v
+python -m unittest discover -s tools -p 'test_saved_read_control.py' -v
 ```
 
 软件夹具与真实保存记录分开计数。浏览器验收使用 Edge/Chromium 的真实页面操作，但不启动电路求解。

@@ -1,0 +1,42 @@
+{
+  "revision": "dd99645148c2ffe9531b1351eac0cc1dae82c339",
+  "source": "committed delivery branch only",
+  "git_status": "",
+  "private_original_file_reads": 0,
+  "xyce_calls": 0,
+  "dependency_installation": "reused installed openyield environment; not a new/cold environment install",
+  "checks": [
+    {
+      "name": "fusion",
+      "exit_code": 0,
+      "summary": [
+        "Ran 45 tests in 4.955s",
+        "OK"
+      ]
+    },
+    {
+      "name": "independent",
+      "exit_code": 0,
+      "summary": [
+        "Ran 28 tests in 2.338s",
+        "OK"
+      ]
+    },
+    {
+      "name": "recording",
+      "exit_code": 0,
+      "summary": [
+        "Ran 15 tests in 1.210s",
+        "OK"
+      ]
+    },
+    {
+      "name": "nodes",
+      "exit_code": 0,
+      "summary": [
+        "Ran 2 tests in 0.000s",
+        "OK"
+      ]
+    }
+  ]
+}
