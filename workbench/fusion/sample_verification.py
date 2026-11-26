@@ -31,6 +31,7 @@ def save(path, data):
 
 
 def safe(root, value):
+    root = Path(root).resolve()
     path = (root / value).resolve()
     if path != root and root not in path.parents:
         raise ValueError("证据文件越过所属记录目录，拒绝读取。")
@@ -48,7 +49,7 @@ def verifier(repository):
 def index_run(directory):
     """Derive only recorded facts. Old adapters must be installed locally, not over HTTP."""
     directory = directory.resolve()
-    attached = directory / "saved_read_verification.json"
+    attached = safe(directory, "saved_read_verification.json")
     if attached.is_file():
         data = load(attached)
         if data.get("schema_version") != 1 or not isinstance(data.get("cases"), list):
@@ -57,11 +58,11 @@ def index_run(directory):
         origin = {"kind": "registered_saved_manifest", "file": str(attached), "sha256": sha(attached),
                   "note": data.get("adapter_note", "只登记已保存事实；不补造标签或退出码。")}
     else:
-        config_path = directory / "run_config.json"
+        config_path = safe(directory, "run_config.json")
         config = load(config_path) if config_path.is_file() else {}
         circuit = config.get("circuit", config.get("resolved_circuit", {}))
         array = circuit.get("array", [])
-        labels = directory / "samples.csv"
+        labels = safe(directory, "samples.csv")
         if not labels.is_file():
             return [], {"kind": "saved_run", "reason": "缺少原逐样本标签 samples.csv，不能建立核验对象。"}
         with labels.open(encoding="utf-8-sig", newline="") as f:
@@ -75,7 +76,7 @@ def index_run(directory):
             row = int(record["xyce_run"])
             if row < 0:
                 raise ValueError("原样本行号不能为负。")
-            decks = sorted(folder.glob("*.sp"))
+            decks = sorted(safe(directory,p) for p in folder.glob("*.sp"))
             deck = decks[0] if len(decks) == 1 else folder / "unresolved-deck.sp"
             text = deck.read_text(errors="replace") if deck.is_file() else ""
             zero = re.search(r"(?i)V\(XSRAM_6T_CORE_3X2:XSRAM_6T_CELL_1_1:Q\)\s*=\s*0(?:\.0+)?V?\b", text)
@@ -92,17 +93,17 @@ def index_run(directory):
                 original=dict(kind="sample_csv", file="samples.csv", sample=record["sample"], batch=batch),
                 files={k:str(p.relative_to(directory)) for k,p in files.items()}, threshold_sources=[],
                 include_aliases={}, recorded_provenance=dict(adapter="saved_run_v1", config_file=str(config_path)))
-            ledger = folder / "batch_evidence.json"
+            ledger = safe(directory, folder / "batch_evidence.json")
             batch_record = load(ledger) if ledger.is_file() else {}
-            registration = directory.parent / "registration.json"
+            registration = safe(directory.parent, "registration.json")
             registered_source = load(registration).get('source_directory') if registration.is_file() else None
             proven_table_paths = {str(table)}
-            if batch_record.get('actual_table',{}).get('path'):
+            if (batch_record.get('actual_table') or {}).get('path'):
                 proven_table_paths.add(batch_record['actual_table']['path'])
             if registered_source:
                 proven_table_paths.add(str(Path(registered_source)/batch/table.name))
             for name in ("run_config.json", "run_summary.json"):
-                path = directory / name
+                path = safe(directory, name)
                 if path.is_file():
                     data = load(path)
                     for key in ("threshold_s", "threshold_ns", "timing_limit_s"):
@@ -115,11 +116,31 @@ def index_run(directory):
             if ledger.is_file():
                 evidence = batch_record
                 case['sha256']={}
+                case['files']['batch_record']=str(ledger.relative_to(directory))
+                case['sha256']['batch_record']=sha(ledger)
+                case['recorded_batch_state']=evidence.get('state')
+                for spec in case['threshold_sources']:
+                    if spec['file']=='run_config.json' and (evidence.get('run_config') or {}).get('sha256'):
+                        spec['sha256']=evidence['run_config']['sha256']
+                    if (evidence.get('requirement') or {}).get('threshold_s') is not None:
+                        spec['recorded_value_s']=evidence['requirement']['threshold_s']
+                        spec['recorded_value_source']=dict(file=str(ledger.relative_to(directory)),json_pointer=['requirement','threshold_s'])
+                entries=[s for s in evidence.get('samples',[]) if str(s.get('sample'))==case['id']
+                         and s.get('zero_based_run')==row and s.get('batch')==batch]
+                if len(entries)==1:
+                    entry=entries[0]
+                    case['expected_original_record']=(entry.get('original_judgment') or {}).get('saved_csv_record')
+                    if (entry.get('native_measurement') or {}).get('sha256'):
+                        case['sha256']['measurement']=entry['native_measurement']['sha256']
+                    if entry.get('waveform_segment')!=row or entry.get('saved_draw_row')!=row or entry.get('actual_table_row')!=row:
+                        case['record_identity_issue']='Batch record row mapping disagrees with the original sample'
+                else:
+                    case['record_identity_issue']='Batch record has no unique matching sample and row'
                 for role,key in (('deck','netlist'),('table','actual_table'),('matrix','draw_matrix'),('waveform','waveform')):
-                    if evidence.get(key,{}).get('sha256'):
+                    if (evidence.get(key) or {}).get('sha256'):
                         case['sha256'][role]=evidence[key]['sha256']
                 case["recorded_export_format"] = ".17g" if "17g" in text else None
-                saved = evidence.get("solver", {}).get("record", {})
+                saved = (evidence.get("solver") or {}).get("record") or {}
                 if saved.get("path"):
                     attempts = safe(directory, batch + "/" + Path(saved["path"]).name)
                     call_pointer = evidence["solver"].get("json_pointer", [])
@@ -132,6 +153,7 @@ def index_run(directory):
                             n = len(attempts_list)-1
                             case["solver_exit"] = dict(file=str(attempts.relative_to(directory)),
                                 pointer=call_pointer+["attempts", n, "native_exit_code"],
+                                sha256=saved.get("sha256"),
                                 deck_hash_pointer=call_pointer+["attempts", n, "deck_sha256"])
             cases.append(case)
         origin = dict(kind="saved_run", config_file=str(config_path), labels_file=str(labels))
@@ -154,12 +176,15 @@ class SampleChecks:
         self.lock = threading.RLock()
         self.events, self.threads = {}, {}
         for job in jobs.jobs.values():
-            for path in Path(job["directory"]).glob("sample_checks/*/check.json"):
+            job_root=Path(job["directory"]).resolve()
+            for path in safe(job_root,"sample_checks").glob("*/check.json"):
+                path=safe(job_root,path)
                 data = load(path)
                 if data["status"] in ("processing", "cancelling"):
                     data.update(status="interrupted", reason="服务重启；保留部分结果，未自动重跑。")
                     for item in data["items"]:
-                        if item["status"] == "not_started": item["status"] = "not_started_after_interrupt"
+                        if item["status"] == "processing": item["status"] = "interrupted"
+                        elif item["status"] == "not_started": item["status"] = "not_started_after_interrupt"
                     save(path, data)
 
     def directory(self, job, group, run):
@@ -188,13 +213,15 @@ class SampleChecks:
 
     def folder(self, job, check):
         if not re.fullmatch(r"[0-9a-f]{32}", check): raise ValueError("核验编号无效。")
-        return Path(self.jobs.snapshot(job)["directory"]) / "sample_checks" / check
+        root=Path(self.jobs.snapshot(job)["directory"]).resolve()
+        return safe(root, "sample_checks/"+check)
 
     def history(self, job, group, run):
-        root = Path(self.jobs.snapshot(job)["directory"])/"sample_checks"
+        job_root=Path(self.jobs.snapshot(job)["directory"]).resolve()
+        root = safe(job_root,"sample_checks")
         result=[]
         for p in sorted(root.glob("*/check.json")):
-            data=load(p)
+            data=load(safe(job_root,p))
             if (data["group"], data["run"]) == (group,run):
                 result.append({k:data.get(k) for k in ("id","status","created_at","selected","reason")})
         return result
@@ -262,7 +289,8 @@ class SampleChecks:
             save(folder/"check.json",data)
 
     def snapshot(self, job, check):
-        return load(self.folder(job,check)/"check.json")
+        folder=self.folder(job,check)
+        return load(safe(folder,"check.json"))
 
     def cancel(self, job, check):
         with self.lock:
@@ -275,7 +303,8 @@ class SampleChecks:
     def download(self, job, check, name):
         if name not in ("samples.csv","check.json","evidence.json","manifest.json","input_hashes.json"):
             raise ValueError("不支持下载此文件。")
-        path=self.folder(job,check)/name
+        folder=self.folder(job,check)
+        path=safe(folder,name)
         if not path.is_file(): raise ValueError("尚未生成该结果文件；部分完成不等于全部完成。")
         return path
 
@@ -285,7 +314,9 @@ class SampleChecks:
         if len(matches)!=1:raise ValueError("所选样本尚未完成核验。")
         result=matches[0];e=result.get("evidence",{}).get("waveform")
         if not e:raise ValueError("没有已确认的节点与波形段，无法绘图；请查看核验缺口。")
-        root=Path(data["input_root"])
+        root=self.directory(job,data['group'],data['run']).resolve()
+        if Path(data['input_root']).resolve()!=root:
+            raise ValueError('核验输入目录与所属任务不一致，拒绝读取。')
         source=result["sources"]["waveform"]
         path=safe(root,source["file"])
         if sha(path)!=source["sha256"]:raise ValueError("波形文件已变化，拒绝显示旧核验对应的图。")

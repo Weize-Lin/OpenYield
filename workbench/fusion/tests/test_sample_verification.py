@@ -163,4 +163,116 @@ class SampleWebTests(unittest.TestCase):
             self.assertTrue(self.checks.download(self.identifier,a['id'],name).is_file())
 
 
+    def native_fixture(self):
+        root=self.root/'native'
+        with zipfile.ZipFile(ROOT/'workbench/fusion/tests/fixtures/native_read_contracts.zip') as z:z.extractall(root)
+        return root/'raw/execution/control_4'
+
+    def test_original_batch_requirement_rejects_changed_config_and_summary(self):
+        folder=self.native_fixture();v=sv.verifier(ROOT)
+        cases,_=sv.index_run(folder);before=v.verify(cases[0],folder,{})
+        self.assertEqual(before['comparison'],'支持原判断')
+        for name in ('run_config.json','run_summary.json'):
+            p=folder/name;d=sv.load(p)
+            for key,value in (('threshold_ns',.8),('threshold_s',.8e-9),('timing_limit_s',.8e-9)):
+                if key in d:d[key]=value
+            sv.save(p,d)
+        cases,_=sv.index_run(folder);result=v.verify(cases[0],folder,{})
+        self.assertEqual(result['comparison'],'存在冲突')
+        self.assertEqual(result['conflict_categories'],['verification_condition'])
+        self.assertEqual(result['timing_observation'],'condition_conflict')
+        self.assertEqual(result['original']['label'],'pass')
+
+    def test_saved_batch_judgment_conflict_preserves_current_original_label(self):
+        folder=self.native_fixture();p=folder/'samples.csv'
+        import csv
+        with p.open() as f:rows=list(csv.DictReader(f))
+        rows[0]['outcome']='timing_failure'
+        with p.open('w',newline='') as f:
+            writer=csv.DictWriter(f,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows)
+        cases,_=sv.index_run(folder);r=sv.verifier(ROOT).verify(cases[0],folder,{})
+        self.assertEqual(r['original']['label'],'timing_failure')
+        self.assertEqual(r['comparison'],'存在冲突')
+        self.assertIn('input_identity',r['conflict_categories'])
+
+    def test_saved_batch_measurement_hash_is_checked(self):
+        folder=self.native_fixture();cases,_=sv.index_run(folder)
+        p=folder/cases[0]['files']['measurement'];p.write_text(p.read_text()+'\n')
+        r=sv.verifier(ROOT).verify(cases[0],folder,{})
+        self.assertEqual(r['comparison'],'存在冲突')
+        self.assertIn('measurement',r['conflict_categories'])
+
+    def test_saved_batch_row_mapping_is_not_ignored(self):
+        folder=self.native_fixture();p=folder/'batch_0000/batch_evidence.json';d=sv.load(p)
+        d['samples'][0]['waveform_segment']=1;sv.save(p,d)
+        cases,_=sv.index_run(folder);r=sv.verifier(ROOT).verify(cases[0],folder,{})
+        self.assertEqual(r['comparison'],'存在冲突')
+        self.assertIn('input_identity',r['conflict_categories'])
+
+    def test_unfinalized_recording_is_insufficient_not_support(self):
+        folder=self.native_fixture();p=folder/'batch_0000/batch_evidence.json';d=sv.load(p)
+        d['state']='submitted';sv.save(p,d)
+        cases,_=sv.index_run(folder);r=sv.verifier(ROOT).verify(cases[0],folder,{})
+        self.assertEqual(r['comparison'],'证据不足')
+
+    def test_solver_record_change_cannot_retain_support(self):
+        folder=self.native_fixture();cases,_=sv.index_run(folder)
+        p=folder/cases[0]['solver_exit']['file'];p.write_text(p.read_text()+'\n')
+        cases,_=sv.index_run(folder);r=sv.verifier(ROOT).verify(cases[0],folder,{})
+        self.assertEqual(r['comparison'],'存在冲突')
+        self.assertIn('input_identity',r['conflict_categories'])
+
+    def test_symlinked_check_directory_and_files_cannot_be_read(self):
+        folder=Path(self.jobs.snapshot(self.identifier)['directory'])/'sample_checks';folder.mkdir()
+        outside=self.root/'outside';outside.mkdir();(outside/'check.json').write_text('{"private":true}')
+        check='b'*32;(folder/check).symlink_to(outside,target_is_directory=True)
+        with self.assertRaises(ValueError):self.checks.snapshot(self.identifier,check)
+        with self.assertRaises(ValueError):self.checks.download(self.identifier,check,'check.json')
+        with self.assertRaises(ValueError):self.checks.history(self.identifier,0,0)
+        (folder/check).unlink();(folder/check).mkdir()
+        (folder/check/'check.json').symlink_to(outside/'check.json')
+        with self.assertRaises(ValueError):self.checks.snapshot(self.identifier,check)
+        with self.assertRaises(ValueError):self.checks.download(self.identifier,check,'check.json')
+
+    def test_metadata_symlinks_are_rejected_before_read(self):
+        folder=self.native_fixture()
+        for name in ('run_config.json','samples.csv','batch_0000/batch_evidence.json','batch_0000/mc_read_3x2_rc1_tb.sp'):
+            with self.subTest(name=name):
+                p=folder/name;contents=p.read_bytes();outside=self.root/'outside-meta';outside.write_bytes(contents)
+                p.unlink();p.symlink_to(outside)
+                with self.assertRaises(ValueError):sv.index_run(folder)
+                p.unlink();p.write_bytes(contents)
+        attached=self.checks.directory(self.identifier,0,0)/'saved_read_verification.json'
+        outside=self.root/'outside-manifest';outside.write_bytes(attached.read_bytes());attached.unlink();attached.symlink_to(outside)
+        with self.assertRaises(ValueError):sv.index_run(attached.parent)
+
+    def test_restart_rejects_symlinked_records_without_writing_outside(self):
+        folder=Path(self.jobs.snapshot(self.identifier)['directory'])/'sample_checks';folder.mkdir()
+        outside=self.root/'outside';outside.mkdir();p=outside/'check.json'
+        contents='{"status":"processing","items":[]}'
+        p.write_text(contents);(folder/('c'*32)).symlink_to(outside,target_is_directory=True)
+        with self.assertRaises(ValueError):sv.SampleChecks(self.jobs,ROOT)
+        self.assertEqual(p.read_text(),contents)
+
+
+
+    def test_wave_rejects_check_input_root_from_another_task(self):
+        cases,_=sv.index_run(self.checks.directory(self.identifier,0,0))
+        data=self.start([cases[4]['id']])
+        p=self.checks.folder(self.identifier,data['id'])/'check.json'
+        d=sv.load(p);d['input_root']=str(self.root);sv.save(p,d)
+        with self.assertRaisesRegex(ValueError,'所属任务'):
+            self.checks.wave(self.identifier,data['id'],cases[4]['id'])
+
+
+    def test_missing_measurement_and_solver_metadata_stay_insufficient(self):
+        folder=self.native_fixture();p=folder/'batch_0000/batch_evidence.json';d=sv.load(p)
+        d['solver']=None;d['samples'][0]['native_measurement']=None;d['state']='submitted'
+        sv.save(p,d)
+        (folder/'batch_0000/mc_read_3x2_rc1_tb.sp.mt0').unlink()
+        cases,_=sv.index_run(folder);r=sv.verifier(ROOT).verify(cases[0],folder,{})
+        self.assertEqual(r['comparison'],'证据不足')
+        self.assertTrue(any(i['kind']=='evidence_missing' for i in r['issues']))
+
+
 if __name__=='__main__':unittest.main()

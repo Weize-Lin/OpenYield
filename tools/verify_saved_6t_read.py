@@ -11,7 +11,7 @@ import numpy as np
 import sample_audit as io
 from check_saved_read_control import instance_pins
 
-RULE = "saved_6t_read0_3x2_v2_threshold_bound"
+RULE = "saved_6t_read0_3x2_v3_record_anchors"
 CORE = "XSRAM_6T_CORE_3X2"
 CELL = CORE + ":XSRAM_6T_CELL_1_1"
 SUPPORTED = dict(cell_type="SRAM_6T_CELL",rows=3,cols=2,target=[1,1],operation="read",
@@ -56,11 +56,18 @@ def resolve_threshold(case, root):
             expected_unit="ns" if spec["field"]=="threshold_ns" else "s"
             if spec.get("unit")!=expected_unit:
                 raise ValueError("Declared unit disagrees with explicit original field")
+            if spec.get('sha256') and io.sha(path)!=spec['sha256']:
+                raise ValueError('Original threshold file differs from the saved batch fingerprint')
             record=io.load(path)
             original=record[spec["field"]]
             if isinstance(original,bool) or not isinstance(original,(float,int)) or not math.isfinite(original) or original<=0:
                 raise ValueError("Original threshold is not a finite positive numeric value")
             value=float(original)*(1e-9 if expected_unit=="ns" else 1)
+            recorded=spec.get('recorded_value_s')
+            if recorded is not None and (isinstance(recorded,bool) or not isinstance(recorded,(int,float))
+                    or not math.isfinite(recorded) or recorded<=0
+                    or not math.isclose(value,recorded,rel_tol=1e-12,abs_tol=0)):
+                raise ValueError('Original threshold differs from the saved batch requirement')
             # Do not silently ignore contradictory recognized fields in the same saved record.
             for key in ("threshold_s","threshold_ns","timing_limit_s"):
                 if key in record:
@@ -75,7 +82,7 @@ def resolve_threshold(case, root):
                 raise ValueError("Threshold record and original samples.csv are not in the same saved run")
             evidence["sources"].append(dict(file=str(path),sha256=io.sha(path),
                 json_pointer=[spec["field"]],unit=expected_unit,raw_value=original,value_s=value,
-                origin=spec.get("origin")))
+                origin=spec.get("origin"),recorded_value_source=spec.get("recorded_value_source")))
             values.append(value)
         except (OSError,ValueError,KeyError,TypeError) as exc:
             evidence["issues"].append(dict(kind="verification_condition_conflict" if isinstance(exc,ValueError) else "threshold_source_missing",
@@ -139,10 +146,17 @@ def verify(case, root, cache):
         if category:
             if category not in out["conflict_categories"]:out["conflict_categories"].append(category)
             out["comparison"]="存在冲突"
+    if case.get('record_identity_issue'):issue('identity_conflict',case['record_identity_issue'])
+    if 'recorded_batch_state' in case and case['recorded_batch_state']!='return_prepared':
+        issue('evidence_missing','Batch recording is not finalized; original completion must not be inferred')
     threshold=resolve_threshold(case,root)
     out["evidence"]["threshold_binding"]=threshold
     for problem in threshold["issues"]:issue(problem["kind"],problem["detail"])
-    try:out["original"]=original_record(case,root)
+    try:
+        out["original"]=original_record(case,root)
+        expected=case.get('expected_original_record')
+        if expected is not None and out['original'].get('record')!=expected:
+            issue('identity_conflict','Original sample CSV differs from the saved batch judgment')
     except (OSError,ValueError,KeyError) as exc:
         issue("identity_conflict",str(exc));out["comparison"]="存在冲突"
     if case.get("contract")!=SUPPORTED:
@@ -154,7 +168,8 @@ def verify(case, root, cache):
             p=path_for(root,relative)
             digest=io.sha(p)
             out["sources"][role]=dict(file=str(p),sha256=digest)
-            if case.get("sha256",{}).get(role,digest)!=digest:issue("identity_conflict","Hash mismatch: "+role)
+            if case.get("sha256",{}).get(role,digest)!=digest:
+                issue("measurement_conflict" if role=="measurement" else "identity_conflict","Hash mismatch: "+role)
             files[role]=p
         except (OSError,ValueError) as exc:issue("evidence_missing",role+": "+str(exc))
     required={"deck","table","matrix","measurement","waveform","solver_log"}
@@ -271,7 +286,11 @@ def verify(case, root, cache):
     if case.get("solver_exit"):
         spec=case["solver_exit"]
         try:
-            p=path_for(root,spec["file"]);saved=io.load(p);rc=pointer(saved,spec["pointer"])
+            p=path_for(root,spec["file"])
+            if spec.get('sha256') and io.sha(p)!=spec['sha256']:
+                issue('identity_conflict','Solver attempt record differs from the saved batch fingerprint')
+            saved=io.load(p);rc=pointer(saved,spec["pointer"])
+            if type(rc) is not int:raise ValueError('Solver native exit is missing or is not an integer')
             if spec.get("point_pointer") and pointer(saved,spec["point_pointer"])!=case["source_point"]:
                 issue("identity_conflict","Solver status refers to a different point")
             if spec.get("deck_hash_pointer") and pointer(saved,spec["deck_hash_pointer"])!=io.sha(files["deck"]):
