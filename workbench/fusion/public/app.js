@@ -2,8 +2,8 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const names = ["mc", "mnis", "ais", "acs", "hscs"];
-  const kinds = ["summary", "samples", "config", "report", "log", "circuit"];
-  const kindNames = { summary: "概览", samples: "样本", config: "配置", report: "原报告", log: "日志", circuit: "电路证据" };
+  const kinds = ["summary", "samples", "config", "report", "log", "circuit", "verification"];
+  const kindNames = { summary: "概览", samples: "样本", config: "配置", report: "原报告", log: "日志", circuit: "电路证据", verification: "样本核验" };
   const DEMO = window.DEMO_DATA || null;
   function demoBlob(entry) {
     if (entry.base64) {
@@ -640,6 +640,12 @@
     });
     $("detail-panel").setAttribute("aria-labelledby", `tab-${kind}`);
     const container = $("detail-content"); container.replaceChildren();
+    if (kind === "verification") {
+      await window.FusionSampleChecks.mount(container, { api, queryURL, node, button, downloadLink, pretty,
+        job: modal.job.id, group: modal.g, run: modal.r, readOnly: state.context?.demo,
+        current: () => sequence === state.modalSequence && $("detail-dialog").open });
+      return;
+    }
     if (kind === "summary") renderRunSummary(container, modal);
     if (kind === "samples") container.append(node("p", "notice subtle", "样本为测量记录，非波形验证。按原字段展示失效 / 分类状态；缺失记录不等于零。每页 50 条。"));
     const loading = node("p", "hint", `正在读取${kindNames[kind]}文件…`); container.append(loading);

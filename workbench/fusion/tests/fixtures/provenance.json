@@ -1,0 +1,60 @@
+{
+  "historical": {
+    "fixture_only": true,
+    "source_archive": "evidence_five.zip",
+    "source_archive_sha256": "8d5d7ddfcc4808759de5a4bd2c240eafa7a78fe45ff3e7f33db9c8511858c8cb",
+    "waveforms": {
+      "replay/point_38/deck.sp.prn": {
+        "source_sha256": "66cced5f4be9c8b5e13cb2cdc49ebacd9c37ac48ea1f44436b949ea399ccf562",
+        "fixture_sha256": "002e43e2d5910c1bdf179ebce52944518fe517e9d52feb3630be8137249b19a0",
+        "original_columns": 44,
+        "retained_columns": 14,
+        "data_rows": 1692,
+        "policy": "All saved rows/time points and retained numeric tokens unchanged; no interpolation or decimation."
+      },
+      "replay/point_19/deck.sp.prn": {
+        "source_sha256": "19a04b7b808f90477f832ec449a85ad21a2604971438d08aa0b71af43eb78ce4",
+        "fixture_sha256": "8b651e73b83bac5761bdfc6517fb4629bc98dd06653e08e8b41bcdb6713e9284",
+        "original_columns": 44,
+        "retained_columns": 14,
+        "data_rows": 1685,
+        "policy": "All saved rows/time points and retained numeric tokens unchanged; no interpolation or decimation."
+      },
+      "control/batch_0000/mc_read_3x2_rc1_tb.sp.prn": {
+        "source_sha256": "44f6ec52b1700fddff7819049f96b7ba44ebfe14681f662b0322a98f8c12d54b",
+        "fixture_sha256": "d3f8882f35be6b1fa8d0d7909a81559204abe1696c522602057e9a1519893be0",
+        "original_columns": 113,
+        "retained_columns": 16,
+        "data_rows": 5703,
+        "policy": "All saved rows/time points and retained numeric tokens unchanged; no interpolation or decimation."
+      }
+    },
+    "preserved_scientific_observations": true,
+    "warning": "Not original archival provenance; never use these derivative files as new SRAM validation or yield samples."
+  },
+  "native": {
+    "fixture_only": true,
+    "source_archive": "evidence.zip",
+    "source_archive_sha256": "81de38e4775fb3eaf06877e96bfcce986057cf37387748a1a6ff46d89d095c94",
+    "waveforms": {
+      "raw/execution/control_4/batch_0000/mc_read_3x2_rc1_tb.sp.prn": {
+        "source_sha256": "669f312c10ef58a1cec6ee555e7c2b020f593d516e6a70d2a0d6e513620bebc6",
+        "fixture_sha256": "7605c6092a5e4473e7b9a03e6512eae6dd877528f1ff11e331e8c5f1fb7ce33d",
+        "original_columns": 113,
+        "retained_columns": 16,
+        "data_rows": 1901,
+        "policy": "All saved rows/time points and retained numeric tokens unchanged; no interpolation or decimation."
+      },
+      "raw/execution/suspected_38/batch_0000/mc_read_3x2_rc1_tb.sp.prn": {
+        "source_sha256": "8c901ad92b1112986a16ccd38636e844d9f12eb60ebba5f5ec1cd915fb251dc2",
+        "fixture_sha256": "aa24acca549ed8d7a99a5f91014aff98cece05f75f6ec51b6a0c2b45776a6883",
+        "original_columns": 113,
+        "retained_columns": 16,
+        "data_rows": 1901,
+        "policy": "All saved rows/time points and retained numeric tokens unchanged; no interpolation or decimation."
+      }
+    },
+    "preserved_scientific_observations": true,
+    "warning": "Not original archival provenance; never use these derivative files as new SRAM validation or yield samples."
+  }
+}

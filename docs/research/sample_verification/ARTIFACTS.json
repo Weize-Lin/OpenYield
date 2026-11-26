@@ -1,0 +1,28 @@
+{
+  "status": "prepared_locally_not_published",
+  "publication_requires_user_approval": true,
+  "source_execution_revisions": [
+    "785d3bd8379e845d0394adc8114a8d8038d9ccc3",
+    "7a0a8340cfbb711ef75e5cb56548e43836dd2b38"
+  ],
+  "artifacts": [
+    {
+      "name": "historical-read-source.zip",
+      "sha256": "8d5d7ddfcc4808759de5a4bd2c240eafa7a78fe45ff3e7f33db9c8511858c8cb",
+      "bytes": 3506357,
+      "url": null
+    },
+    {
+      "name": "two-point-label-verification-785d3bd.zip",
+      "sha256": "81de38e4775fb3eaf06877e96bfcce986057cf37387748a1a6ff46d89d095c94",
+      "bytes": 2418625,
+      "url": null
+    },
+    {
+      "name": "new-task-read-web-7a0a834-evidence.zip",
+      "sha256": "06e7c150d61538d2ce7af5c95607f03c401c94d1aae54447022461e3716a0809",
+      "bytes": 3052982,
+      "url": null
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "execution_revision": "7a0a8340cfbb711ef75e5cb56548e43836dd2b38",
+  "job": "e3fc0a2c318d481b8ae529cb9e92741d",
+  "check": "f8a2431fd4ae48e9a8e354b163c3d7bf",
+  "status": "complete",
+  "parameter_rows_submitted": 2,
+  "returned_rows": 2,
+  "batches": 1,
+  "solver_process_attempts": 1,
+  "conservative_attempt_rows": 2,
+  "numeric_retries": 0,
+  "native_solver_wall_seconds": 23.358231660000456,
+  "mc_task_wall_seconds": 25.8131071530006,
+  "browser_submit_to_final_seconds": 27.7464468,
+  "input_preview_equal": true,
+  "actual_table_equal": true,
+  "web_cli_results_equal": true,
+  "csv_equal": true,
+  "downloads_equal": true,
+  "original_files_checked": 43,
+  "original_files_changed": [],
+  "original_labels_unchanged": true,
+  "auto_index_origin": "saved_run",
+  "manual_registration": false,
+  "verification_solver_ledger_changed": false,
+  "verification_observed_new_xyce": 0,
+  "process_observer_limit": "50ms sampled process observation, supplemented by unchanged native ledgers and source audit",
+  "results": [
+    {
+      "sample": "1",
+      "original_label": "pass",
+      "comparison": "支持原判断",
+      "function": "functional_pass",
+      "timing": "pass",
+      "native_delay_ns": 0.7131700000000001,
+      "waveform_segment": 0,
+      "waveform_points": 1901
+    },
+    {
+      "sample": "2",
+      "original_label": "pass",
+      "comparison": "支持原判断",
+      "function": "functional_pass",
+      "timing": "pass",
+      "native_delay_ns": 0.7131744,
+      "waveform_segment": 1,
+      "waveform_points": 1901
+    }
+  ]
+}

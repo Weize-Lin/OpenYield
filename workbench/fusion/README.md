@@ -165,3 +165,7 @@ OpenYield 原项目及双方协作贡献继续按 Apache-2.0 保留，见 `NOTIC
 整合没有改变 MC/MNIS/AIS/ACS/HSCS 的算法策略、模型或门限，没有接入 TabPFN/GPU、代码上传或服务器部署。
 离线接入检查和后续真实验收分别留档；新工作台已完成上述两个 MC 任务的 Xyce 闭环。
 这不覆盖所有配置、其他四种算法或真实异常分支，也不构成算法精度认证。
+
+## 样本核验首版（待合入）
+
+现有任务详情新增只读核验，原标签和良率不回写。请先读[启动、新任务、旧结果与支持范围](SAMPLE_VERIFICATION.md)；研发审查见[完整整合说明](../../docs/research/sample_verification/INTEGRATION.md)。当前只在本地交付分支可用，尚未进入日常开发版。

@@ -1,0 +1,209 @@
+{
+  "fixture_only": true,
+  "results": [
+    {
+      "comparison": "支持原判断",
+      "circuit_observation": "functional_pass",
+      "timing_observation": "pass",
+      "evidence": {
+        "observation": {
+          "q": {
+            "value": 1.67065792e-06,
+            "neighbor_values": [
+              1.67070981e-06,
+              1.67065792e-06
+            ],
+            "logic": "low",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "XSRAM_6T_CORE_3X2:XSRAM_6T_CELL_1_1:Q"
+          },
+          "qb": {
+            "value": 0.999978878,
+            "neighbor_values": [
+              0.999978878,
+              0.999978878
+            ],
+            "logic": "high",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "XSRAM_6T_CORE_3X2:XSRAM_6T_CELL_1_1:QB"
+          },
+          "out": {
+            "value": 2.24421754e-05,
+            "neighbor_values": [
+              2.24384159e-05,
+              2.24421754e-05
+            ],
+            "logic": "low",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "OUT"
+          },
+          "bl": {
+            "value": 0.0157009089,
+            "neighbor_values": [
+              0.0156793962,
+              0.0157009089
+            ],
+            "logic": "low",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "XSRAM_6T_CORE_3X2:BL1_tap1"
+          },
+          "blb": {
+            "value": 1.04051546,
+            "neighbor_values": [
+              1.04053237,
+              1.04051546
+            ],
+            "logic": "high",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "XSRAM_6T_CORE_3X2:BLB1_tap1"
+          }
+        },
+        "simulation": {
+          "state": "completed_by_saved_evidence",
+          "solver_exit_code": 0,
+          "exit_code_recorded": true,
+          "numerical_messages": [],
+          "log_end_marker": true,
+          "waveform_end_marker": true
+        }
+      }
+    },
+    {
+      "comparison": "支持原判断",
+      "circuit_observation": "functional_failure",
+      "timing_observation": "event_missing",
+      "evidence": {
+        "observation": {
+          "q": {
+            "value": 0.000121807405,
+            "neighbor_values": [
+              0.000121807875,
+              0.000121807405
+            ],
+            "logic": "low",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "XSRAM_6T_CORE_3X2:XSRAM_6T_CELL_1_1:Q"
+          },
+          "qb": {
+            "value": 0.999983197,
+            "neighbor_values": [
+              0.999983196,
+              0.999983197
+            ],
+            "logic": "high",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "XSRAM_6T_CORE_3X2:XSRAM_6T_CELL_1_1:QB"
+          },
+          "out": {
+            "value": 0.999996196,
+            "neighbor_values": [
+              0.999996185,
+              0.999996196
+            ],
+            "logic": "high",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "OUT"
+          },
+          "bl": {
+            "value": 1.00212751,
+            "neighbor_values": [
+              1.00226392,
+              1.00212751
+            ],
+            "logic": "high",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "XSRAM_6T_CORE_3X2:BL1_tap1"
+          },
+          "blb": {
+            "value": 1.04111078,
+            "neighbor_values": [
+              1.04115018,
+              1.04111078
+            ],
+            "logic": "high",
+            "times_s": [
+              7.11e-09,
+              7.12e-09
+            ],
+            "lines": [
+              713,
+              714
+            ],
+            "node": "XSRAM_6T_CORE_3X2:BLB1_tap1"
+          }
+        },
+        "simulation": {
+          "state": "completed_by_saved_evidence",
+          "solver_exit_code": 0,
+          "exit_code_recorded": true,
+          "numerical_messages": [],
+          "log_end_marker": true,
+          "waveform_end_marker": true
+        }
+      }
+    }
+  ]
+}

@@ -159,6 +159,8 @@ class LocalJobs:
         self.threads = {}
         self.lock = threading.RLock()
         self.closing = False
+        from sample_verification import SampleChecks
+        self.sample_checks = None
         source = self.demo_root if self.demo else self.output_root
         for path in sorted(source.glob("*/job.json")):
             job = read_json(path)
@@ -177,6 +179,16 @@ class LocalJobs:
             if analysis_path.is_file():
                 job["analysis"] = read_json(analysis_path)
             self.jobs[job["id"]] = job
+
+    def verification_source(self):
+        return source_snapshot()
+
+    def checks(self):
+        with self.lock:
+            if self.sample_checks is None:
+                from sample_verification import SampleChecks
+                self.sample_checks = SampleChecks(self, ROOT)
+            return self.sample_checks
 
     def _save(self, job):
         write_json(Path(job["directory"]) / "job.json", {k: v for k, v in job.items() if k != "analysis"})
@@ -451,6 +463,8 @@ class LocalJobs:
         return self.snapshot(identifier)
 
     def close(self):
+        if self.sample_checks is not None:
+            self.sample_checks.close()
         with self.lock:
             self.closing = True
             ids = [j["id"] for j in self.jobs.values() if not j["offline"] and j["status"] == "running"]
@@ -547,6 +561,12 @@ class LocalJobs:
             raise ValueError("记录索引不能为负数。")
         job = self.snapshot(identifier)
         row = job["analysis"]["groups"][group_index]["runs"][run_index]
+        if job.get("saved_evidence_runs"):
+            mapped = job["saved_evidence_runs"].get(f"{group_index}/{run_index}")
+            if not mapped:
+                raise ValueError("旧材料未登记此轮次。")
+            directory = contained(Path(job["directory"]) / mapped, [Path(job["directory"]).resolve()])
+            return job, row, directory
         if self.demo:
             mapped = job.get("demo_evidence", {}).get(f"{group_index}/{run_index}")
             if not mapped:
@@ -728,6 +748,22 @@ def make_handler(jobs, token):
                         self.send_data(dict(token=token, template=original, presets=choices, revision=source_snapshot()["git_revision"], backend_source=source_snapshot(), demo=False,
                                             reference=str(reference) if (reference / "run_summary.json").is_file() else "",
                                             output_root=str(jobs.output_root), jobs=jobs.listing(), catalog=jobs.catalog()))
+                elif url.path.startswith("/api/sample-check/"):
+                    identifier = query["id"][0]
+                    checks = jobs.checks()
+                    action = url.path.rsplit("/", 1)[1]
+                    if action == "availability":
+                        self.send_data(checks.availability(identifier, int(query["group"][0]), int(query["run"][0])))
+                    elif action == "status":
+                        self.send_data(checks.snapshot(identifier, query["check"][0]))
+                    elif action == "wave":
+                        self.send_data(checks.wave(identifier, query["check"][0], query["sample"][0]))
+                    elif action == "download":
+                        path = checks.download(identifier, query["check"][0], query["name"][0])
+                        mime = "text/csv" if path.suffix == ".csv" else "application/json"
+                        self.send_data(path.read_bytes(), content_type=mime+"; charset=utf-8", filename=path.name)
+                    else:
+                        raise ValueError("未知样本核验操作。")
                 elif url.path == "/api/jobs":
                     self.send_data(dict(jobs=jobs.listing()))
                 elif url.path == "/api/job":
@@ -762,9 +798,9 @@ def make_handler(jobs, token):
                     self.send_data((STATIC.parent / filename).read_bytes(), content_type=mime + "; charset=utf-8")
                 elif url.path in {"/artifacts/" + name for name in ("overview-desktop.png", "evidence-samples.png", "comparison-six-rounds.png", "builder-guide.png", "circuit-evidence.png", "suite-matrix.png")}:
                     self.send_data((STATIC.parent / "artifacts" / url.path.rsplit("/", 1)[1]).read_bytes(), content_type="image/png")
-                elif url.path in ("/", "/app.js", "/style.css"):
+                elif url.path in ("/", "/app.js", "/style.css", "/sample-verification.js"):
                     name, mime = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"),
-                                  "/style.css": ("style.css", "text/css")}[url.path]
+                                  "/style.css": ("style.css", "text/css"), "/sample-verification.js": ("sample-verification.js", "text/javascript")}[url.path]
                     self.send_data((STATIC / name).read_bytes(), content_type=mime + "; charset=utf-8")
                 else:
                     self.send_data(dict(error="未找到页面或接口。"), 404)
@@ -783,7 +819,11 @@ def make_handler(jobs, token):
                 request = json.loads(self.rfile.read(length))
                 if not isinstance(request, dict):
                     raise ValueError("请求必须是 JSON 对象。")
-                if self.path == "/api/validate":
+                if self.path == "/api/sample-check/start":
+                    result = jobs.checks().start(request["id"], int(request["group"]), int(request["run"]), request.get("samples"))
+                elif self.path == "/api/sample-check/cancel":
+                    result = jobs.checks().cancel(request["id"], request["check"])
+                elif self.path == "/api/validate":
                     result = preview(request["config"])
                 elif self.path == "/api/suite/validate":
                     experiments = request.get("experiments")
