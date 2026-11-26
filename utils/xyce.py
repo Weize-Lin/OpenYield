@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import time
+import sys
 from datetime import datetime, timezone
 
 
@@ -66,6 +67,10 @@ class _SolverEvidence:
                                    for path,value in previous.items()}
         self.save()
 
+    def updated_log(self):
+        self.attempt['artifacts'][str(self.log)]=dict(sha256=_file_sha(self.log),bytes=self.log.stat().st_size)
+        self.save()
+
 
 def _file_sha(path):
     result=hashlib.sha256()
@@ -86,9 +91,24 @@ def execute_xyce(deck_path, command, *, log_path=None, cwd=None, timeout=None, e
     deck_path = Path(deck_path)
     log_path = Path(log_path) if log_path is not None else Path(str(deck_path) + '.log')
 
-    evidence=_SolverEvidence(deck_path,command,log_path,cwd,env)
+    # Optional evidence must not replace a solver return value or its original exception.
+    def recording_warning(exc):
+        try:
+            print(f"WARNING: solver evidence unavailable: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        except Exception:
+            pass  # Even a closed diagnostic stream must not replace the solver outcome.
+    try:
+        evidence=_SolverEvidence(deck_path,command,log_path,cwd,env)
+    except Exception as exc:
+        evidence=None;recording_warning(exc)
+    def record(method,*args,**kwargs):
+        nonlocal evidence
+        if evidence is None:return
+        try:getattr(evidence,method)(*args,**kwargs)
+        except Exception as exc:
+            evidence=None;recording_warning(exc)
     def run(reason):
-        evidence.begin(reason)
+        record('begin',reason)
         try:
             result = subprocess.run(command, cwd=cwd, env=env, timeout=timeout,
                                     capture_output=True, text=True, check=False)
@@ -97,17 +117,17 @@ def execute_xyce(deck_path, command, *, log_path=None, cwd=None, timeout=None, e
                 return value.decode(errors='replace') if isinstance(value, bytes) else value or ''
             log_path.write_text(f'Xyce timed out after {timeout} seconds\n'
                                 + decoded(exc.stdout) + '\n' + decoded(exc.stderr))
-            evidence.finish('timeout',log_path.read_text(),error=exc)
+            record('finish','timeout',log_path.read_text(),error=exc)
             raise
         except BaseException as exc:
-            evidence.finish('interrupted' if isinstance(exc,(KeyboardInterrupt,SystemExit)) else 'launch_error',str(exc),error=exc)
+            record('finish','interrupted' if isinstance(exc,(KeyboardInterrupt,SystemExit)) else 'launch_error',str(exc),error=exc)
             raise
         log_path.write_text(result.stdout + '\n' + result.stderr)
         native_code=result.returncode
         if any(message in result.stdout + result.stderr for message in
                ('DC Operating Point Failed', 'Time step too small')):
             result.returncode = result.returncode or 1
-        evidence.finish('process_finished' if result.returncode==0 else 'process_failed',
+        record('finish','process_finished' if result.returncode==0 else 'process_failed',
                         result.stdout+'\n'+result.stderr,native=native_code,effective=result.returncode)
         return result
 
@@ -143,14 +163,13 @@ def execute_xyce(deck_path, command, *, log_path=None, cwd=None, timeout=None, e
         if count != 1:
             return result
         attempt = _preserve_attempt(deck_path, log_path, kind)
-        evidence.archived(attempt)
+        record('archived',attempt)
         deck_path.write_text(amended)
         retried.add(kind)
         result = run(kind)
         log_path.write_text(f'{kind} retry; original attempt: {attempt}\n'
                             + '\n'.join(options) + '\n' + log_path.read_text())
-        evidence.attempt['artifacts'][str(log_path)]=dict(sha256=_file_sha(log_path),bytes=log_path.stat().st_size)
-        evidence.save()
+        record('updated_log')
     return result
 
 

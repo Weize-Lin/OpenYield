@@ -303,6 +303,7 @@ class RecordedAccessTestbench:
     def __init__(self, testbench, output, config):
         self.testbench = testbench
         self.record_config = dict(config)
+        self.evidence_recording_errors = []
         self.options = evaluation_circuit_options(config)
         self.operation = self.options["operation"]
         self.rule = MeasurementRule(self.operation, config)
@@ -322,8 +323,15 @@ class RecordedAccessTestbench:
                          configured_threshold_value=self.rule.threshold_value,
                          comparison_operator=self.rule.operator,
                          **({"threshold_v":self.rule.threshold} if self.rule.is_snm else {"threshold_s":self.rule.threshold}))
-        return write_batch_evidence(batch,self.record_config,self.options,requirement,first,count,
-                                    state=state,rows=rows,error=error,returned=returned)
+        try:
+            return write_batch_evidence(batch,self.record_config,self.options,requirement,first,count,
+                                        state=state,rows=rows,error=error,returned=returned)
+        except Exception as exc:
+            problem=dict(batch=batch.name,state=state,error=f"{type(exc).__name__}: {exc}")
+            self.evidence_recording_errors.append(problem)
+            try:print(f"WARNING: batch evidence unavailable: {problem}",file=sys.stderr,flush=True)
+            except Exception:pass
+            return None
 
     def write_rows(self, rows):
         with (self.output / "samples.csv").open("a", encoding="utf-8", newline="") as stream:
@@ -529,6 +537,7 @@ def run_evaluation(config, output):
     summary.update(
         status="complete" if complete else "incomplete", error=error,
         requested_samples=submitted, returned_rows=returned,
+        evidence_recording_errors=recorder.evidence_recording_errors if recorder else [],
         unclassified_samples=submitted - returned, passed_samples=returned - failures,
         timing_failures=timing, failure_count=failures,
         pfail_estimate=failures / returned if complete and mode != "nominal" else None,

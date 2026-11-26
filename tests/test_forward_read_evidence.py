@@ -100,6 +100,29 @@ class SolverAttemptEvidenceTests(unittest.TestCase):
         self.assertEqual(Path(old["console_file"]).read_text(),"first\n")
 
 
+    # Each case substitutes the solver. This never starts Xyce.
+    def test_evidence_failures_do_not_change_solver_returns_or_retry_cap(self):
+        for phase in ('__init__','begin','finish','archived','updated_log'):
+            with self.subTest(phase=phase), TemporaryDirectory() as folder:
+                deck=Path(folder)/'deck.sp';deck.write_text('.TRAN 1p 19n\n.END\n')
+                outputs=iter(('DC Operating Point Failed','Time step too small','End of Xyce'))
+                def fake(*args,**kwargs):return subprocess.CompletedProcess(args[0],0,next(outputs),'')
+                with patch('utils.xyce._SolverEvidence.'+phase,side_effect=OSError('evidence-only failure')), patch('utils.xyce.subprocess.run',side_effect=fake) as calls:
+                    result=execute_xyce(deck,['fixture-solver',str(deck)])
+                self.assertEqual(result.returncode,0)
+                self.assertEqual(calls.call_count,3)
+
+    def test_evidence_failure_never_masks_original_process_exception(self):
+        for error in (subprocess.TimeoutExpired('fixture',1),FileNotFoundError('original launch error'),KeyboardInterrupt()):
+            with self.subTest(error=type(error).__name__), TemporaryDirectory() as folder:
+                deck=Path(folder)/'deck.sp';deck.write_text('.TRAN 1p 19n\n.END\n')
+                with patch('utils.xyce._SolverEvidence.finish',side_effect=OSError('evidence-only failure')), patch('utils.xyce.subprocess.run',side_effect=error) as calls:
+                    with self.assertRaises(type(error)) as caught:execute_xyce(deck,['fixture-solver',str(deck)])
+                self.assertIs(caught.exception,error)
+                self.assertEqual(calls.call_count,1)
+
+
+
 class FakeBench:
     """Synthetic files solely for testing production recording."""
     def __init__(self,values,error=None):
@@ -209,6 +232,34 @@ class BatchEvidenceTests(unittest.TestCase):
                 assert e["state"]=="submitted" and e["solver"] is None
                 return super().run_mc_simulation(**kwargs)
         self.run_recorded(Inspecting([.7e-9,1.1e-9]))
+
+
+    def test_batch_record_failures_preserve_returns_budget_and_original_errors(self):
+        for phase in ('submitted','return_prepared','call_failed'):
+            with self.subTest(phase=phase), TemporaryDirectory() as folder:
+                root=Path(folder)
+                (root/'run_config.json').write_text(json.dumps(self.config))
+                (root/'samples.csv').write_text('sample,batch,xyce_run,read_delay_s,outcome\n')
+                error=RuntimeError('original parser failure') if phase=='call_failed' else None
+                bench=FakeBench([.7e-9,1.1e-9],error)
+                recorder=RecordedAccessTestbench(bench,root,self.config)
+                def fail(*args,**kwargs):
+                    if kwargs['state']==phase:raise OSError('evidence-only failure')
+                    return write_batch_evidence(*args,**kwargs)
+                with patch('yield_estimation.evaluation.run.write_batch_evidence',side_effect=fail):
+                    if error:
+                        with self.assertRaises(RuntimeError) as caught:
+                            recorder.run_mc_simulation(operation='read',target_row=1,target_col=1,mc_runs=2,vars=self.x)
+                        self.assertIs(caught.exception,error)
+                    else:
+                        result=recorder.run_mc_simulation(operation='read',target_row=1,target_col=1,mc_runs=2,vars=self.x)
+                        np.testing.assert_array_equal(result[0],[.7e-9,1.1e-9])
+                self.assertEqual((recorder.submitted,recorder.returned),(2,0 if error else 2))
+                self.assertEqual(bench.calls,1)
+                self.assertEqual(recorder.evidence_recording_errors[0]['state'],phase)
+                with (root/'samples.csv').open() as f:rows=list(csv.DictReader(f))
+                self.assertEqual([r['outcome'] for r in rows],['unclassified']*2 if error else ['pass','timing_failure'])
+
 
 
 if __name__=="__main__":unittest.main(verbosity=2)
